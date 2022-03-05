@@ -3,16 +3,19 @@ import {
 	joinVoiceChannel,
 	getVoiceConnection,
 	VoiceConnectionStatus,
-	createAudioResource,
-	StreamType,
 	AudioPlayer,
-	generateDependencyReport,
+	entersState,
+	VoiceConnection,
 } from "@discordjs/voice"
-import discordTTS from "discord-tts"
-import { join } from "node:path"
+import { getIntroAudio, getNameAudioByName } from "./audio"
+import { getNameByTagNumber } from "./usernameMapper"
+
+const BOT_ID = "947897258014298162"
 
 export class ExtendedClient extends Client {
 	audioPlayer: AudioPlayer
+	lastJoinedChannelId: string
+	connection: VoiceConnection
 
 	constructor() {
 		super({
@@ -27,93 +30,62 @@ export class ExtendedClient extends Client {
 		this.login(process.env.TOKEN)
 	}
 
+	async playMahaleuk() {
+		console.log("== starting play a sound ==")
+		this.audioPlayer.play(getIntroAudio())
+
+		return new Promise((resolve, reject) => {
+			setTimeout(() => {
+				this.audioPlayer.stop()
+				resolve(null)
+			}, 2600)
+		})
+	}
+
+	sayName(userTag: string) {
+		console.log("== starting say your name ==")
+		const tagNumber = userTag.split("#")[1]
+		const name = getNameByTagNumber(tagNumber)
+		const audio = getNameAudioByName(name)
+		this.audioPlayer.play(audio)
+	}
+
 	async registerModules() {
 		this.on("ready", () => {
 			console.log("== BOT is now online!! ==")
 		})
 
-		this.on("voiceStateUpdate", (prevState, newState) => {
+		this.on("voiceStateUpdate", async (prevState, newState) => {
+			if (newState.member.id === BOT_ID) return
+
 			// TODO: handle switing a channel
 			if (!prevState.channel && !!newState.channel) {
 				console.log(
 					`${newState.member.user.tag} (${newState.member.user.id}) joined ${newState.channel.name} (${newState.channel.id}) channel at ${newState.guild.name} (${newState.guild.id}) guild.`
 				)
 
-				const connection = joinVoiceChannel({
-					channelId: newState.channel.id,
-					guildId: "389054453552119810",
-					adapterCreator: newState.guild.voiceAdapterCreator,
-					selfMute: false,
-					selfDeaf: false,
-				})
+				if (this.lastJoinedChannelId !== newState.channel.id || !this.connection) {
+					this.connection = joinVoiceChannel({
+						channelId: newState.channel.id,
+						guildId: "389054453552119810",
+						adapterCreator: newState.guild.voiceAdapterCreator,
+						selfMute: false,
+						selfDeaf: false,
+					})
+					this.lastJoinedChannelId = newState.channel.id
+					this.connection = await entersState(this.connection, VoiceConnectionStatus.Connecting, 5_000)
+				}
 
-				connection.subscribe(this.audioPlayer)
+				this.connection.subscribe(this.audioPlayer)
 
-				const mahaloukSound = createAudioResource(join(__dirname, "/sound.ogg"), {
-					inputType: StreamType.OggOpus,
-				})
-				this.audioPlayer.play(mahaloukSound)
-
-				setTimeout(() => {
-					console.log("== starting say your name ==")
-					const userName = newState.member.user.tag.split("#")[0]
-					const userNameStream = discordTTS.getVoiceStream(userName)
-					const audioResource = createAudioResource(userNameStream)
-					this.audioPlayer.play(audioResource)
-				}, 2600)
+				await this.playMahaleuk()
+				this.sayName(newState.member.user.tag)
 			}
 		})
 
 		this.on("messageCreate", (message) => {
-			console.log(message.content)
-
-			if (message !== null && message.content === "+join") {
-				console.log("joined")
-
-				const connection = joinVoiceChannel({
-					channelId: "741898883973644379",
-					guildId: "389054453552119810",
-					adapterCreator: message.guild.voiceAdapterCreator,
-					selfMute: false,
-					selfDeaf: false,
-				})
-
-				const audioPlayer = new AudioPlayer()
-				connection.subscribe(audioPlayer)
-
-				connection.on(VoiceConnectionStatus.Ready, (oldState, newState) => {
-					console.log("Connection is in the Ready state!")
-				})
-
-				const userName = message.member.user.tag.split("#")[0]
-				const userNameStream = discordTTS.getVoiceStream(userName)
-				const audioResource = createAudioResource(userNameStream, {
-					inlineVolume: true,
-				})
-				audioResource.volume.setVolume(0.3)
-
-				// const mahaloukSound = createAudioResource(
-				//   join(__dirname, "/sound.mp3"),
-				//   { inlineVolume: true }
-				// )
-				// mahaloukSound.volume.setVolume(0.3)
-
-				// audioPlayer.play(mahaloukSound)
-				setTimeout(() => {
-					audioPlayer.play(audioResource)
-				}, 2000)
-
-				// const stream = discordTTS.getVoiceStream("Hello R")
-				// const audioResource = createAudioResource(stream, {
-				//   inputType: StreamType.Arbitrary,
-				//   inlineVolume: true,
-				// })
-
-				// connection.subscribe(audioPlayer)
-				// audioPlayer.play(audioResource)
-			}
-
 			if (message.content === "+leave") {
+				console.log("== BOT is leaving ==")
 				const connection = getVoiceConnection("389054453552119810")
 				connection?.disconnect()
 			}
