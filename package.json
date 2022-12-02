@@ -24,7 +24,7 @@
   "dependencies": {
     "@discordjs/opus": "^0.7.0",
     "@discordjs/voice": "^0.8.0",
-    "discord-tts": "^1.2.1",
+    "discord-tts": "^1.2.2",
     "discord.js": "^13.6.0",
     "dotenv": "^16.0.0",
     "ffmpeg-static": "^4.4.1",

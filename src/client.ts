@@ -7,8 +7,7 @@ import {
 	entersState,
 	VoiceConnection,
 } from "@discordjs/voice"
-import { getIntroAudio, getNameAudioByName } from "./audio"
-import { getNameByTagNumber } from "./usernameMapper"
+import discordTTS from "discord-tts"
 
 const BOT_ID = "947897258014298162"
 
@@ -30,18 +29,6 @@ export class ExtendedClient extends Client {
 		this.login(process.env.TOKEN)
 	}
 
-	async playMahaleuk() {
-		console.log("== starting play a sound ==")
-		this.audioPlayer.play(getIntroAudio())
-
-		return new Promise((resolve, reject) => {
-			setTimeout(() => {
-				this.audioPlayer.stop()
-				resolve(null)
-			}, 2600)
-		})
-	}
-
 	sayName(userTag: string) {
 		console.log("== starting say your name ==")
 		const tagNumber = userTag.split("#")[1]
@@ -53,6 +40,7 @@ export class ExtendedClient extends Client {
 	async registerModules() {
 		this.on("ready", () => {
 			console.log("== BOT is now online!! ==")
+			
 		})
 
 		this.on("voiceStateUpdate", async (prevState, newState) => {
@@ -78,12 +66,12 @@ export class ExtendedClient extends Client {
 
 				this.connection.subscribe(this.audioPlayer)
 
-				await this.playMahaleuk()
-				this.sayName(newState.member.user.tag)
+				// this.sayName(newState.member.user.tag)
 			}
 		})
 
 		this.on("messageCreate", (message) => {
+			// Add disabling intro sound
 			if (message.content === "+leave") {
 				console.log("== BOT is leaving ==")
 				const connection = getVoiceConnection("389054453552119810")
