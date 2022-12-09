@@ -11,9 +11,11 @@ import {
 import { joinVoiceChannel, createAudioPlayer, createAudioResource } from "@discordjs/voice"
 import discordTTS from "discord-tts"
 
+const BOT_ID = "947897258014298162"
+const MAX_TEMPLATE_LETTER = 100
+
 let enabledSayMyName = true
 let sayMyNameTemplate = "{name} เข้ามาจ้า"
-const BOT_ID = "947897258014298162"
 let connection
 
 export const commandsConfig = {
@@ -38,13 +40,18 @@ export const commandsConfig = {
 			.addStringOption((option) =>
 				option
 					.setName("template")
-					.setDescription(`Template of the tts. use {name} to positioning the displayname. Example: "{name} เข้ามาจ้า"`)
+					.setDescription(`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters.\nExample: "{name} เข้ามาจ้า"`)
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
 			const unsanitizedTemplate = interaction.options.getString("template")
 			if (!unsanitizedTemplate?.includes("{name}")) {
 				await interaction.reply({ content: "Template is wrong. Could not find {name} in the teamplate.", ephemeral: true })
+				return
+			}
+
+			if (unsanitizedTemplate.length > MAX_TEMPLATE_LETTER) {
+				await interaction.reply({ content: `Template cannot be longer than ${MAX_TEMPLATE_LETTER} letters.`, ephemeral: true })
 				return
 			}
 
