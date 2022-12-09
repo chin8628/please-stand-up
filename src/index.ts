@@ -7,6 +7,7 @@ import {
 	IntentsBitField,
 	SlashCommandBuilder,
 	ChatInputCommandInteraction,
+	VoiceChannel
 } from "discord.js"
 import { joinVoiceChannel, createAudioPlayer, createAudioResource } from "@discordjs/voice"
 import discordTTS from "discord-tts"
@@ -74,6 +75,7 @@ client.on("ready", () => {
 client.on("voiceStateUpdate", async (prevState, newState) => {
 	if (newState.member.id === BOT_ID) return
 	if (!enabledSayMyName) return
+	if (newState.guild.afkChannelId === newState.channelId) return
 	if (!newState.member) {
 		connection.destroy();
 		return
