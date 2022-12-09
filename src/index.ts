@@ -78,6 +78,9 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 		connection.destroy();
 		return
 	}
+	if (newState.channel.userLimit != 0) {
+		return
+	}
 
 	if (newState.channel?.id && prevState.channel?.id !== newState.channel?.id) {
 		if (prevState.channel?.id !== newState.channel.id) {
