@@ -6,8 +6,6 @@ import {
 	Interaction,
 	IntentsBitField,
 	SlashCommandBuilder,
-	Collection,
-	CommandInteraction,
 	ChatInputCommandInteraction,
 } from "discord.js"
 import { joinVoiceChannel, createAudioPlayer, createAudioResource } from "@discordjs/voice"
@@ -69,6 +67,10 @@ client.on("ready", () => {
 client.on("voiceStateUpdate", async (prevState, newState) => {
 	if (newState.member.id === BOT_ID) return
 	if (!enabledSayMyName) return
+	if (!newState.member) {
+		connection.destroy();
+		return
+	}
 
 	if (newState.channel?.id && prevState.channel?.id !== newState.channel?.id) {
 		if (prevState.channel?.id !== newState.channel.id) {
