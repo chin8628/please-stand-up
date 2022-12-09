@@ -40,7 +40,7 @@ export const commandsConfig = {
 			.addStringOption((option) =>
 				option
 					.setName("template")
-					.setDescription(`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters.\nExample: "{name} เข้ามาจ้า"`)
+					.setDescription(`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} เข้ามาจ้า"`)
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
