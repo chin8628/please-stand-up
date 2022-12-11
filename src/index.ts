@@ -62,6 +62,47 @@ export const commandsConfig = {
 	},
 }
 
+function speak(text: string) {
+	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: "th" }))
+	const audioPlayer = createAudioPlayer()
+	const subscription = connection.subscribe(audioPlayer)
+	audioPlayer.play(resource)
+	if (subscription) {
+		setTimeout(() => subscription.unsubscribe(), 10_000)
+	}
+}
+
+class Joiner {
+	private joiners = []
+
+	public push(name: string) {
+		if (this.joiners.includes(name)) {
+			return
+		}
+
+		this.joiners.push(name)
+		const currentJoinersLength = this.joiners.length
+
+		setTimeout(() => {
+			if (currentJoinersLength !== this.joiners.length) {
+				return
+			}
+
+			let text = ""
+			if (this.joiners.length > 1) {
+				text = `มี ${this.joiners.length} คนเข้ามาจ้า`
+			} else {
+				text = sayMyNameTemplate.replace("{name}", name)
+			}
+
+			speak(text)
+			this.joiners = []
+		}, 1500)
+	}
+}
+
+const joiner = new Joiner()
+
 const client = new Client({
 	intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.GuildMessages, IntentsBitField.Flags.GuildVoiceStates],
 })
@@ -95,15 +136,7 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 			})
 		}
 
-		const text = sayMyNameTemplate.replace("{name}", newState.member.displayName)
-		const audioPlayer = createAudioPlayer()
-		const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: "th" }))
-		audioPlayer.play(resource)
-		const subscription = connection.subscribe(audioPlayer)
-
-		if (subscription) {
-			setTimeout(() => subscription.unsubscribe(), 10_000)
-		}
+		joiner.push(newState.member.displayName)
 	}
 })
 
