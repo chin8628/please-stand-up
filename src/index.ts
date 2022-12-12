@@ -123,6 +123,7 @@ class Joiner {
 
 		setTimeout(() => {
 			if (currentJoinersLength !== this.joiners.length) {
+				this.joiners = []
 				return
 			}
 
