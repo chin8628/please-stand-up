@@ -7,10 +7,12 @@ import {
 	IntentsBitField,
 	SlashCommandBuilder,
 	ChatInputCommandInteraction,
-	VoiceChannel
+	VoiceChannel,
+	GuildMember
 } from "discord.js"
 import { joinVoiceChannel, createAudioPlayer, createAudioResource } from "@discordjs/voice"
 import discordTTS from "discord-tts"
+import * as fs from 'fs';
 
 const BOT_ID = "947897258014298162"
 const MAX_TEMPLATE_LETTER = 100
@@ -60,6 +62,30 @@ export const commandsConfig = {
 			await interaction.reply({ content: `Successfully updates a template! New teamplate is: ${sayMyNameTemplate}` })
 		},
 	},
+	callme: {
+		data: new SlashCommandBuilder()
+			.setName('callme')
+			.setDescription('Set how bot call user')
+			.addStringOption((option) => 
+				option
+					.setName('name')
+					.setDescription('Alias name that you want Bot call')
+					.setRequired(true)
+					.setMaxLength(64)
+			),
+		async execute(interaction: ChatInputCommandInteraction) {
+			const userID = interaction.user.id
+			const name = interaction.options?.getString('name') 
+			
+			// >> Set Alias name to some storage with userID <<
+			const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+'})
+			const alias = JSON.parse(aliasFile)
+			alias[userID] = name
+			fs.writeFileSync(__dirname + '/alias.json', JSON.stringify(alias))
+
+			await interaction.reply({ content: `Successfully bot remembered you as ${name}`})
+		}
+	}
 }
 
 function speak(text: string) {
@@ -75,9 +101,17 @@ function speak(text: string) {
 class Joiner {
 	private joiners = []
 
-	public push(name: string) {
-		if (this.joiners.includes(name)) {
+	public push(member: GuildMember) {
+		if (this.joiners.includes(member.displayName)) {
 			return
+		}
+
+		let name = member.displayName
+		// >> Find user id match with alias <<
+		const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+'})
+		const alias = JSON.parse(aliasFile)
+		if(alias[member.id]) {
+			name = alias[member.id]
 		}
 
 		this.joiners.push(name)
@@ -137,13 +171,12 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 			})
 		}
 
-		joiner.push(newState.member.displayName)
+		joiner.push(newState.member)
 	}
 })
 
 client.on("interactionCreate", async (interaction: Interaction) => {
 	if (!interaction.isCommand()) return
-
 	if (!Object.keys(commandsConfig).includes(interaction.commandName)) {
 		await interaction.reply({
 			content: `Command not found: ${interaction.commandName} isn't in the config key.`,
