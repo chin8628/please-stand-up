@@ -14,7 +14,7 @@ import { joinVoiceChannel, createAudioPlayer, createAudioResource } from "@disco
 import discordTTS from "discord-tts"
 import * as fs from "fs"
 
-const BOT_ID = "947897258014298162"
+const BOT_ID = process.env.DISCORD_APP_ID
 const MAX_TEMPLATE_LETTER = 100
 
 let enabledSayMyName = true
