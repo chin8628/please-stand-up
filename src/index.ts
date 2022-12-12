@@ -164,7 +164,7 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 		if (prevState.channel?.id !== newState.channel.id) {
 			connection = joinVoiceChannel({
 				channelId: newState.channel.id,
-				guildId: "389054453552119810",
+				guildId: newState.guild.id,
 				adapterCreator: newState.guild.voiceAdapterCreator,
 				selfMute: false,
 				selfDeaf: false,
