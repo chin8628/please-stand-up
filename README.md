@@ -1,4 +1,4 @@
-# Please stand up
+# Please Stand Up
 
 ~Discord bot for playing "Ma-ha-leuk" song when people joining~
 
