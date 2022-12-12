@@ -118,7 +118,7 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 	if (newState.member.id === BOT_ID) return
 	if (!enabledSayMyName) return
 	if (newState.guild.afkChannelId === newState.channelId) return
-	if (!newState.member) {
+	if (newState.channel.members.size === 0) {
 		connection.destroy();
 		return
 	}
