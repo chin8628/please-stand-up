@@ -87,7 +87,7 @@ export const commandsConfig = {
 			alias[userID] = name
 			fs.writeFileSync(__dirname + "/alias.json", JSON.stringify(alias))
 
-			await interaction.reply({ content: `Successfully bot remembered you as ${name}` })
+			await interaction.reply({ content: `Bot remembered you as ${name}`, ephemeral: true })
 		},
 	},
 }
