@@ -8,4 +8,7 @@ RUN yarn
 COPY . .
 RUN yarn build -- -b
 
+RUN echo "{}" > ./dist/alias.json
+RUN chmod 777 ./dist/alias.json
+
 CMD ["yarn", "start:prod"]

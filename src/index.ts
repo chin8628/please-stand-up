@@ -8,11 +8,11 @@ import {
 	SlashCommandBuilder,
 	ChatInputCommandInteraction,
 	VoiceChannel,
-	GuildMember
+	GuildMember,
 } from "discord.js"
 import { joinVoiceChannel, createAudioPlayer, createAudioResource } from "@discordjs/voice"
 import discordTTS from "discord-tts"
-import * as fs from 'fs';
+import * as fs from "fs"
 
 const BOT_ID = "947897258014298162"
 const MAX_TEMPLATE_LETTER = 100
@@ -43,18 +43,26 @@ export const commandsConfig = {
 			.addStringOption((option) =>
 				option
 					.setName("template")
-					.setDescription(`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} เข้ามาจ้า"`)
+					.setDescription(
+						`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} เข้ามาจ้า"`
+					)
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
 			const unsanitizedTemplate = interaction.options.getString("template")
 			if (!unsanitizedTemplate?.includes("{name}")) {
-				await interaction.reply({ content: "Template is wrong. Could not find {name} in the teamplate.", ephemeral: true })
+				await interaction.reply({
+					content: "Template is wrong. Could not find {name} in the teamplate.",
+					ephemeral: true,
+				})
 				return
 			}
 
 			if (unsanitizedTemplate.length > MAX_TEMPLATE_LETTER) {
-				await interaction.reply({ content: `Template cannot be longer than ${MAX_TEMPLATE_LETTER} letters.`, ephemeral: true })
+				await interaction.reply({
+					content: `Template cannot be longer than ${MAX_TEMPLATE_LETTER} letters.`,
+					ephemeral: true,
+				})
 				return
 			}
 
@@ -64,28 +72,24 @@ export const commandsConfig = {
 	},
 	callme: {
 		data: new SlashCommandBuilder()
-			.setName('callme')
-			.setDescription('Set how bot call user')
-			.addStringOption((option) => 
-				option
-					.setName('name')
-					.setDescription('Alias name that you want Bot call')
-					.setRequired(true)
-					.setMaxLength(64)
+			.setName("callme")
+			.setDescription("Set how bot call user")
+			.addStringOption((option) =>
+				option.setName("name").setDescription("Alias name that you want Bot call").setRequired(true).setMaxLength(64)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
 			const userID = interaction.user.id
-			const name = interaction.options?.getString('name') 
-			
+			const name = interaction.options?.getString("name")
+
 			// >> Set Alias name to some storage with userID <<
-			const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+'})
+			const aliasFile = fs.readFileSync(__dirname + "/alias.json", { encoding: "utf8", flag: "r+" })
 			const alias = JSON.parse(aliasFile)
 			alias[userID] = name
-			fs.writeFileSync(__dirname + '/alias.json', JSON.stringify(alias))
+			fs.writeFileSync(__dirname + "/alias.json", JSON.stringify(alias))
 
-			await interaction.reply({ content: `Successfully bot remembered you as ${name}`})
-		}
-	}
+			await interaction.reply({ content: `Bot remembered you as ${name}`, ephemeral: true })
+		},
+	},
 }
 
 function speak(text: string) {
@@ -107,10 +111,10 @@ class Joiner {
 		}
 
 		let name = member.displayName
-		// >> Find user id match with alias <<
-		const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+'})
+		// Find user id match with alias
+		const aliasFile = fs.readFileSync(__dirname + "/alias.json", { encoding: "utf8", flag: "r+" })
 		const alias = JSON.parse(aliasFile)
-		if(alias[member.id]) {
+		if (alias[member.id]) {
 			name = alias[member.id]
 		}
 
@@ -148,6 +152,9 @@ client.on("ready", () => {
 })
 
 client.on("voiceStateUpdate", async (prevState, newState) => {
+	// validate to be leave or join channel event
+	if (!newState.channel?.id || prevState.channel?.id === newState.channel?.id) return
+
 	if (newState.channel.members.size === 1) return
 	if (newState.member.id === BOT_ID) return
 	if (!enabledSayMyName) return
@@ -160,19 +167,17 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 		return
 	}
 
-	if (newState.channel?.id && prevState.channel?.id !== newState.channel?.id) {
-		if (prevState.channel?.id !== newState.channel.id) {
-			connection = joinVoiceChannel({
-				channelId: newState.channel.id,
-				guildId: "389054453552119810",
-				adapterCreator: newState.guild.voiceAdapterCreator,
-				selfMute: false,
-				selfDeaf: false,
-			})
-		}
-
-		joiner.push(newState.member)
+	if (prevState.channel?.id !== newState.channel.id) {
+		connection = joinVoiceChannel({
+			channelId: newState.channel.id,
+			guildId: newState.guild.id,
+			adapterCreator: newState.guild.voiceAdapterCreator,
+			selfMute: false,
+			selfDeaf: false,
+		})
 	}
+
+	joiner.push(newState.member)
 })
 
 client.on("interactionCreate", async (interaction: Interaction) => {
