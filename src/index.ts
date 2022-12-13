@@ -8,6 +8,7 @@ import {
 	SlashCommandBuilder,
 	ChatInputCommandInteraction,
 	GuildMember,
+	VoiceState,
 } from "discord.js"
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnection } from "@discordjs/voice"
 import discordTTS from "discord-tts"
@@ -19,8 +20,9 @@ const MAX_TEMPLATE_LETTER = 100
 let enabledSayMyName = true
 let joinChannelTemplate = "{name} เข้ามาจ้า"
 let leftChannelTemplate = "{name} ออกไปแล้วจ้า"
-let connection: VoiceConnection
+let botConnection: VoiceConnection
 
+// TODO: Extract this config to separated file.
 export const commandsConfig = {
 	stop: {
 		data: new SlashCommandBuilder().setName("stop").setDescription("Stops SAY MY NAME!"),
@@ -129,7 +131,7 @@ export const commandsConfig = {
 function speak(text: string) {
 	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: "th" }))
 	const audioPlayer = createAudioPlayer()
-	const subscription = connection.subscribe(audioPlayer)
+	const subscription = botConnection.subscribe(audioPlayer)
 	audioPlayer.play(resource)
 	if (subscription) {
 		setTimeout(() => subscription.unsubscribe(), 10_000)
@@ -194,114 +196,82 @@ client.on("ready", () => {
 	console.log(`Logged in as ${client.user.tag}!`)
 })
 
-client.on("voiceStateUpdate", async (prevState, newState) => {
-	const prevVoiceChannelID = prevState.channel?.id || null
-	const newVoiceChannelID = newState.channel?.id || null
+function isBot(state: VoiceState) {
+	return state.member.user.bot
+}
 
-	if (prevVoiceChannelID === newVoiceChannelID) {
-		// nothing change
+function userLeftChannel(state: VoiceState) {
+	if (isBot(state)) return
+	// skip in limit member channel
+	if (state.channel.userLimit != 0) return
+	// skip when only one member in channel
+	if (state.channel.members.size <= 1) {
+		if (botConnection) {
+			botConnection.destroy()
+		}
 		return
-	} else if (newVoiceChannelID === null) {
-		//user left
+	}
 
-		// skip when disable
-		if (!enabledSayMyName) return
-		// skip when bot left
-		if (prevState.member.id === BOT_ID) return
-		// skip in limit member channel
-		if (prevState.channel.userLimit != 0) return
-		// skip when only one member in channel
-		if (prevState.channel.members.size <= 1) {
-			if (connection) {
-				connection.destroy()
-			}
-			return
+	// Connect bot to channel that user left
+	const joinedCurrentChannel = botConnection.joinConfig.channelId === state.channel?.id
+	if (!botConnection || (!joinedCurrentChannel && state.channel?.id)) {
+		botConnection = joinVoiceChannel({
+			channelId: state.channel.id,
+			guildId: state.guild.id,
+			adapterCreator: state.guild.voiceAdapterCreator,
+			selfMute: false,
+			selfDeaf: false,
+		})
+	}
+
+	// Push member to announce
+	joiner.push(state.member, "left")
+}
+
+function userJoinChannel(state: VoiceState) {
+	if (isBot(state)) return
+	// skip when only one member in channel
+	if (state.channel.members.size === 1) return
+	// skip in limit member channel
+	if (state.channel.userLimit != 0) return
+	// skip when try to join afk channel
+	if (state.guild.afkChannelId === state.channelId) return
+	// skip & disconnect from channel when no one else
+	if (state.channel.members.size === 0) {
+		if (botConnection) {
+			botConnection.destroy()
 		}
+		return
+	}
 
-		// Connect bot to channel that user left
-		if (!connection || connection.joinConfig.channelId !== prevVoiceChannelID) {
-			connection = joinVoiceChannel({
-				channelId: prevVoiceChannelID,
-				guildId: prevState.guild.id,
-				adapterCreator: prevState.guild.voiceAdapterCreator,
-				selfMute: false,
-				selfDeaf: false,
-			})
-		}
+	const joinedCurrentChannel = botConnection.joinConfig.channelId !== state.channel?.id
+	if (!botConnection || (joinedCurrentChannel && state.channel?.id)) {
+		botConnection = joinVoiceChannel({
+			channelId: state.channel.id,
+			guildId: state.guild.id,
+			adapterCreator: state.guild.voiceAdapterCreator,
+			selfMute: false,
+			selfDeaf: false,
+		})
+	}
 
-		// Push member to announce
-		joiner.push(prevState.member, "left")
-	} else if (prevVoiceChannelID === null) {
-		// user join
+	joiner.push(state.member, "join")
+}
 
-		// skip when disable
-		if (!enabledSayMyName) return
-		// skip when bot join
-		if (newState.member.id === BOT_ID) return
-		// skip when only one member in channel
-		if (newState.channel.members.size === 1) return
-		// skip in limit member channel
-		if (newState.channel.userLimit != 0) return
-		// skip when try to join afk channel
-		if (newState.guild.afkChannelId === newState.channelId) return
-		// skip & disconnect from channel when no one else
-		if (newState.channel.members.size === 0) {
-			if (connection) {
-				connection.destroy()
-			}
-			return
-		}
+client.on("voiceStateUpdate", async (prevState, newState) => {
+	if (!enabledSayMyName) return
 
-		// Connect bot to channel that user join
-		if (!connection || connection.joinConfig.channelId !== newVoiceChannelID) {
-			connection = joinVoiceChannel({
-				channelId: newVoiceChannelID,
-				guildId: newState.guild.id,
-				adapterCreator: newState.guild.voiceAdapterCreator,
-				selfMute: false,
-				selfDeaf: false,
-			})
-		}
+	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
+	if (isNotChannelUpdateEvent) {
+		return
+	}
 
-		// Push member to announce
-		joiner.push(newState.member, "join")
-	} else {
-		// user move
-		/* 
-			ตรงนี้ไม่รู้ว่าจะให้แจ้งออก หรือแจ้งเข้าดี สำหรับตอนนี้เลยให้แจ้งเข้าไปก่อน
-		*/
-
-		// skip when disable
-		if (!enabledSayMyName) return
-		// skip when bot join
-		if (newState.member.id === BOT_ID) return
-		// skip when only one member in channel
-		if (newState.channel.members.size === 1) return
-		// skip in limit member channel
-		if (newState.channel.userLimit != 0) return
-		// skip when try to join afk channel
-		if (newState.guild.afkChannelId === newState.channelId) return
-		// skip & disconnect from channel when no one else
-		if (newState.channel.members.size === 0) {
-			if (connection) {
-				connection.destroy()
-			}
-			return
-		}
-
-		// Connect bot to channel that user join
-		if (!connection || connection.joinConfig.channelId !== newVoiceChannelID) {
-			connection = joinVoiceChannel({
-				channelId: newVoiceChannelID,
-				guildId: newState.guild.id,
-				adapterCreator: newState.guild.voiceAdapterCreator,
-				selfMute: false,
-				selfDeaf: false,
-			})
-		}
-
-		// Push member to announce
-		joiner.push(newState.member, "join")
+	const isLeftChannel = newState.channel?.id === null
+	const isJoinChannel = prevState.channel?.id === null
+	if (isLeftChannel) {
+		userLeftChannel(prevState)
+	} else if (isJoinChannel) {
+		userJoinChannel(newState)
 	}
 })
 
