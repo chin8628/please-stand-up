@@ -3,26 +3,79 @@ name: build and push docker image
 on:
   push:
     branches:
-      - 'main'
+      - main
+      - 'releases/**'
+  pull_request:
+    branches:    
+      - main
 
 jobs:
-  docker:
+  pre-cache-node:
+    name: Caching node environment
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v3
-      -
-        name: Set up Docker Buildx
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.14.0
+          cache: 'yarn'
+      - uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ hashFiles('**/yarn.lock') }}
+      - run: yarn --frozen-lockfile
+
+  type-check:
+    name: Typescript
+    runs-on: ubuntu-latest
+    needs: pre-cache-node
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.14.0
+          cache: 'yarn'
+      - uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ hashFiles('**/yarn.lock') }}
+      - run: yarn --frozen-lockfile
+      - run: yarn typecheck
+
+  lint:
+    name: ESlint
+    runs-on: ubuntu-latest
+    needs: pre-cache-node
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.14.0
+          cache: 'yarn'
+      - uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ hashFiles('**/yarn.lock') }}
+      - run: yarn --frozen-lockfile
+      - run: yarn lint
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [type-check, lint]
+    if: github.ref_name == 'main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      -
-        name: Login to Docker Hub
+      
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Build and push
+      
+      - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
