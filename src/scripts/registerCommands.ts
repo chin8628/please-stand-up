@@ -1,8 +1,11 @@
+import * as dotenv from "dotenv" // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
+dotenv.config() //Must be invoked before all statements
+
 const { REST, Routes } = require('discord.js');
 const fs = require('node:fs');
 import { commandsConfig } from '../index'
 
-const BOT_ID = "947897258014298162"
+const BOT_ID = process.env.DISCORD_APP_ID
 const commands = Object.values(commandsConfig).map(item => item.data.toJSON())
 
 // Construct and prepare an instance of the REST module
