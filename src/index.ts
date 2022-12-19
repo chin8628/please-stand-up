@@ -200,12 +200,12 @@ function isBot(state: VoiceState) {
 	return state.member.user.bot
 }
 
-function userLeftChannel(state: VoiceState) {
-	if (isBot(state)) return
+function userLeftChannel(prevState: VoiceState) {
+	if (isBot(prevState)) return
 	// skip in limit member channel
-	if (state.channel.userLimit != 0) return
+	if (prevState.channel.userLimit != 0) return
 	// skip when only one member in channel
-	if (state.channel.members.size <= 1) {
+	if (prevState.channel.members.size === 0) {
 		if (botConnection) {
 			botConnection.destroy()
 		}
@@ -213,49 +213,49 @@ function userLeftChannel(state: VoiceState) {
 	}
 
 	// Connect bot to channel that user left
-	const joinedCurrentChannel = botConnection.joinConfig.channelId === state.channel?.id
-	if (!botConnection || (!joinedCurrentChannel && state.channel?.id)) {
+	const joinedCurrentChannel = botConnection.joinConfig.channelId === prevState.channel?.id
+	if (!botConnection || (!joinedCurrentChannel && prevState.channel?.id)) {
 		botConnection = joinVoiceChannel({
-			channelId: state.channel.id,
-			guildId: state.guild.id,
-			adapterCreator: state.guild.voiceAdapterCreator,
+			channelId: prevState.channel.id,
+			guildId: prevState.guild.id,
+			adapterCreator: prevState.guild.voiceAdapterCreator,
 			selfMute: false,
 			selfDeaf: false,
 		})
 	}
 
 	// Push member to announce
-	joiner.push(state.member, "left")
+	joiner.push(prevState.member, "left")
 }
 
-function userJoinChannel(state: VoiceState) {
-	if (isBot(state)) return
+function userJoinChannel(newState: VoiceState) {
+	if (isBot(newState)) return
 	// skip when only one member in channel
-	if (state.channel.members.size === 1) return
+	if (newState.channel.members.size === 1) return
 	// skip in limit member channel
-	if (state.channel.userLimit != 0) return
+	if (newState.channel.userLimit != 0) return
 	// skip when try to join afk channel
-	if (state.guild.afkChannelId === state.channelId) return
+	if (newState.guild.afkChannelId === newState.channelId) return
 	// skip & disconnect from channel when no one else
-	if (state.channel.members.size === 0) {
+	if (newState.channel.members.size === 0) {
 		if (botConnection) {
 			botConnection.destroy()
 		}
 		return
 	}
 
-	const joinedCurrentChannel = botConnection.joinConfig.channelId !== state.channel?.id
-	if (!botConnection || (joinedCurrentChannel && state.channel?.id)) {
+	const joinedCurrentChannel = botConnection.joinConfig.channelId !== newState.channel?.id
+	if (!botConnection || (joinedCurrentChannel && newState.channel?.id)) {
 		botConnection = joinVoiceChannel({
-			channelId: state.channel.id,
-			guildId: state.guild.id,
-			adapterCreator: state.guild.voiceAdapterCreator,
+			channelId: newState.channel.id,
+			guildId: newState.guild.id,
+			adapterCreator: newState.guild.voiceAdapterCreator,
 			selfMute: false,
 			selfDeaf: false,
 		})
 	}
 
-	joiner.push(state.member, "join")
+	joiner.push(newState.member, "join")
 }
 
 client.on("voiceStateUpdate", async (prevState, newState) => {
