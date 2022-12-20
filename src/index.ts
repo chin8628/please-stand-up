@@ -13,8 +13,8 @@ import {
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnection } from "@discordjs/voice"
 import discordTTS from "discord-tts"
 import * as fs from "fs"
+import * as logger from 'npmlog'
 
-const BOT_ID = process.env.DISCORD_APP_ID
 const MAX_TEMPLATE_LETTER = 100
 
 let enabledSayMyName = true
@@ -167,13 +167,13 @@ class Joiner {
 			if (this.joiners.length > 1) {
 				if (type === "join") {
 					text = `มี ${this.joiners.length} คนเข้ามาจ้า`
-				} else {
+				} else if (type === "left") {
 					text = `มี ${this.joiners.length} ออกไปแล้ว`
 				}
 			} else {
 				if (type === "join") {
 					text = joinChannelTemplate.replace("{name}", name)
-				} else {
+				} else if (type === "left") {
 					text = leftChannelTemplate.replace("{name}", name)
 				}
 			}
@@ -191,9 +191,8 @@ const client = new Client({
 })
 
 client.login(process.env.TOKEN)
-
 client.on("ready", () => {
-	console.log(`Logged in as ${client.user.tag}!`)
+	logger.info(`Logged in as ${client.user.tag}!`)
 })
 
 function isBot(state: VoiceState) {
@@ -212,9 +211,7 @@ function userLeftChannel(prevState: VoiceState) {
 		return
 	}
 
-	// Connect bot to channel that user left
-	const joinedCurrentChannel = botConnection.joinConfig.channelId === prevState.channel?.id
-	if (!botConnection || (!joinedCurrentChannel && prevState.channel?.id)) {
+	if (!botConnection || prevState.channel?.id) {
 		botConnection = joinVoiceChannel({
 			channelId: prevState.channel.id,
 			guildId: prevState.guild.id,
@@ -244,8 +241,7 @@ function userJoinChannel(newState: VoiceState) {
 		return
 	}
 
-	const joinedCurrentChannel = botConnection.joinConfig.channelId !== newState.channel?.id
-	if (!botConnection || (joinedCurrentChannel && newState.channel?.id)) {
+	if (!botConnection || newState.channel?.id) {
 		botConnection = joinVoiceChannel({
 			channelId: newState.channel.id,
 			guildId: newState.guild.id,
@@ -266,11 +262,13 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 		return
 	}
 
-	const isLeftChannel = newState.channel?.id === null
-	const isJoinChannel = prevState.channel?.id === null
+	const isLeftChannel = !newState.channel?.id && !!prevState.channel?.id
+	const isJoinChannel = !prevState.channel?.id && !!newState.channel?.id
 	if (isLeftChannel) {
+		logger.info(newState.member.displayName, "lefted a channel")
 		userLeftChannel(prevState)
 	} else if (isJoinChannel) {
+		logger.info(newState.member.displayName, "joined a channel")
 		userJoinChannel(newState)
 	}
 })
