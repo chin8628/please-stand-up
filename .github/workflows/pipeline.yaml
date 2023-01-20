@@ -80,4 +80,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: chin8628/please-stand-up:latest
+          tags: |
+            chin8628/please-stand-up:${{ fromJson(steps.gen_tags.outputs.tags) }}
+            chin8628/please-stand-up:latest
