@@ -80,6 +80,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            chin8628/please-stand-up:${{ github.run_number }}
-            chin8628/please-stand-up:latest
+          tags: chin8628/please-stand-up:latest,chin8628/please-stand-up:${{ github.run_number }}
+            
