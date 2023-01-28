@@ -59,9 +59,26 @@ jobs:
       - run: yarn --frozen-lockfile
       - run: yarn lint
 
+  test:
+    name: Jest
+    runs-on: ubuntu-latest
+    needs: pre-cache-node
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.14.0
+          cache: 'yarn'
+      - uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ hashFiles('**/yarn.lock') }}
+      - run: yarn --frozen-lockfile
+      - run: yarn test
+
   docker:
     runs-on: ubuntu-latest
-    needs: [type-check, lint]
+    needs: [type-check, lint, test]
     if: github.ref_name == 'main'
     steps:
       - uses: actions/checkout@v3

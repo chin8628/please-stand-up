@@ -1,5 +1,8 @@
-import * as dotenv from "dotenv" // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-dotenv.config() //Must be invoked before all statements
+// see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
+import * as dotenv from 'dotenv'
+
+// Must be invoked before all statements
+dotenv.config()
 
 import {
 	Client,
@@ -9,52 +12,52 @@ import {
 	ChatInputCommandInteraction,
 	GuildMember,
 	VoiceState,
-} from "discord.js"
-import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnection } from "@discordjs/voice"
-import discordTTS from "discord-tts"
-import * as fs from "fs"
+} from 'discord.js'
+import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnection } from '@discordjs/voice'
+import discordTTS from 'discord-tts'
+import * as fs from 'fs'
 import * as logger from 'npmlog'
 
 const MAX_TEMPLATE_LETTER = 100
 
 let enabledSayMyName = true
-let joinChannelTemplate = "{name} เข้ามาจ้า"
-let leftChannelTemplate = "{name} ออกไปแล้วจ้า"
+let joinChannelTemplate = '{name} เข้ามาจ้า'
+let leftChannelTemplate = '{name} ออกไปแล้วจ้า'
 let botConnection: VoiceConnection
 
 // TODO: Extract this config to separated file.
 export const commandsConfig = {
 	stop: {
-		data: new SlashCommandBuilder().setName("stop").setDescription("Stops SAY MY NAME!"),
+		data: new SlashCommandBuilder().setName('stop').setDescription('Stops SAY MY NAME!'),
 		async execute(interaction) {
 			enabledSayMyName = false
-			await interaction.reply({ content: "Say your name is disabled!" })
+			await interaction.reply({ content: 'Say your name is disabled!' })
 		},
 	},
 	start: {
-		data: new SlashCommandBuilder().setName("start").setDescription("Starts SAY MY NAME!"),
+		data: new SlashCommandBuilder().setName('start').setDescription('Starts SAY MY NAME!'),
 		async execute(interaction) {
 			enabledSayMyName = true
-			await interaction.reply({ content: "Say your name is enabled!" })
+			await interaction.reply({ content: 'Say your name is enabled!' })
 		},
 	},
 	set_join_template: {
 		data: new SlashCommandBuilder()
-			.setName("set_join_template")
-			.setDescription("Sets how bot should greeting an user")
+			.setName('set_join_template')
+			.setDescription('Sets how bot should greeting an user')
 			.addStringOption((option) =>
 				option
-					.setName("template")
+					.setName('template')
 					.setDescription(
 						`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} เข้ามาจ้า"`
 					)
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
-			const unsanitizedTemplate = interaction.options.getString("template")
-			if (!unsanitizedTemplate?.includes("{name}")) {
+			const unsanitizedTemplate = interaction.options.getString('template')
+			if (!unsanitizedTemplate?.includes('{name}')) {
 				await interaction.reply({
-					content: "Template is wrong. Could not find {name} in the teamplate.",
+					content: 'Template is wrong. Could not find {name} in the teamplate.',
 					ephemeral: true,
 				})
 				return
@@ -74,21 +77,21 @@ export const commandsConfig = {
 	},
 	set_left_template: {
 		data: new SlashCommandBuilder()
-			.setName("set_left_template")
-			.setDescription("Sets how bot should goodbye an user")
+			.setName('set_left_template')
+			.setDescription('Sets how bot should goodbye an user')
 			.addStringOption((option) =>
 				option
-					.setName("template")
+					.setName('template')
 					.setDescription(
 						`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} ออกไปแล้วจ้า"`
 					)
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
-			const unsanitizedTemplate = interaction.options.getString("template")
-			if (!unsanitizedTemplate?.includes("{name}")) {
+			const unsanitizedTemplate = interaction.options.getString('template')
+			if (!unsanitizedTemplate?.includes('{name}')) {
 				await interaction.reply({
-					content: "Template is wrong. Could not find {name} in the teamplate.",
+					content: 'Template is wrong. Could not find {name} in the teamplate.',
 					ephemeral: true,
 				})
 				return
@@ -108,20 +111,20 @@ export const commandsConfig = {
 	},
 	callme: {
 		data: new SlashCommandBuilder()
-			.setName("callme")
-			.setDescription("Set how bot call you")
+			.setName('callme')
+			.setDescription('Set how bot call you')
 			.addStringOption((option) =>
-				option.setName("name").setDescription("Alias name that you want Bot call").setRequired(true).setMaxLength(64)
+				option.setName('name').setDescription('Alias name that you want Bot call').setRequired(true).setMaxLength(64)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
 			const userID = interaction.user.id
-			const name = interaction.options?.getString("name")
+			const name = interaction.options?.getString('name')
 
-			// >> Set Alias name to some storage with userID <<
-			const aliasFile = fs.readFileSync(__dirname + "/alias.json", { encoding: "utf8", flag: "r+" })
+			// Set Alias name to some storage with userID
+			const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+' })
 			const alias = JSON.parse(aliasFile)
 			alias[userID] = name
-			fs.writeFileSync(__dirname + "/alias.json", JSON.stringify(alias))
+			fs.writeFileSync(__dirname + '/alias.json', JSON.stringify(alias))
 
 			await interaction.reply({ content: `Bot remembered you as ${name}`, ephemeral: true })
 		},
@@ -129,7 +132,7 @@ export const commandsConfig = {
 }
 
 function speak(text: string) {
-	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: "th" }))
+	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
 	const audioPlayer = createAudioPlayer()
 	const subscription = botConnection.subscribe(audioPlayer)
 	audioPlayer.play(resource)
@@ -141,14 +144,14 @@ function speak(text: string) {
 class Joiner {
 	private joiners = []
 
-	public push(member: GuildMember, type: "left" | "join") {
+	public push(member: GuildMember, type: 'left' | 'join') {
 		if (this.joiners.includes(member.displayName)) {
 			return
 		}
 
 		let name = member.displayName
 		// Find user id match with alias
-		const aliasFile = fs.readFileSync(__dirname + "/alias.json", { encoding: "utf8", flag: "r+" })
+		const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+' })
 		const alias = JSON.parse(aliasFile)
 		if (alias[member.id]) {
 			name = alias[member.id]
@@ -163,19 +166,17 @@ class Joiner {
 				return
 			}
 
-			let text = ""
+			let text = ''
 			if (this.joiners.length > 1) {
-				if (type === "join") {
+				if (type === 'join') {
 					text = `มี ${this.joiners.length} คนเข้ามาจ้า`
-				} else if (type === "left") {
+				} else if (type === 'left') {
 					text = `มี ${this.joiners.length} ออกไปแล้ว`
 				}
-			} else {
-				if (type === "join") {
-					text = joinChannelTemplate.replace("{name}", name)
-				} else if (type === "left") {
-					text = leftChannelTemplate.replace("{name}", name)
-				}
+			} else if (type === 'join') {
+				text = joinChannelTemplate.replace('{name}', name)
+			} else if (type === 'left') {
+				text = leftChannelTemplate.replace('{name}', name)
 			}
 
 			speak(text)
@@ -191,7 +192,7 @@ const client = new Client({
 })
 
 client.login(process.env.TOKEN)
-client.on("ready", () => {
+client.on('ready', () => {
 	logger.info(`Logged in as ${client.user.tag}!`)
 })
 
@@ -222,7 +223,7 @@ function userLeftChannel(prevState: VoiceState) {
 	}
 
 	// Push member to announce
-	joiner.push(prevState.member, "left")
+	joiner.push(prevState.member, 'left')
 }
 
 function userJoinChannel(newState: VoiceState) {
@@ -251,10 +252,10 @@ function userJoinChannel(newState: VoiceState) {
 		})
 	}
 
-	joiner.push(newState.member, "join")
+	joiner.push(newState.member, 'join')
 }
 
-client.on("voiceStateUpdate", async (prevState, newState) => {
+client.on('voiceStateUpdate', async (prevState, newState) => {
 	if (!enabledSayMyName) return
 
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
@@ -265,15 +266,15 @@ client.on("voiceStateUpdate", async (prevState, newState) => {
 	const isLeftChannel = !newState.channel?.id && !!prevState.channel?.id
 	const isJoinChannel = !prevState.channel?.id && !!newState.channel?.id
 	if (isLeftChannel) {
-		logger.info(newState.member.displayName, "lefted a channel")
+		logger.info(newState.member.displayName, 'lefted a channel')
 		userLeftChannel(prevState)
 	} else if (isJoinChannel) {
-		logger.info(newState.member.displayName, "joined a channel")
+		logger.info(newState.member.displayName, 'joined a channel')
 		userJoinChannel(newState)
 	}
 })
 
-client.on("interactionCreate", async (interaction: Interaction) => {
+client.on('interactionCreate', async (interaction: Interaction) => {
 	if (!interaction.isCommand()) return
 	if (!Object.keys(commandsConfig).includes(interaction.commandName)) {
 		await interaction.reply({
