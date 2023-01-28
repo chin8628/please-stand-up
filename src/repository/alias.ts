@@ -16,3 +16,10 @@ export const getAllAlias = (): Record<string, string> => {
 
 	return aliases
 }
+
+export const saveAlias = (user: string, newAlias: string): void => {
+	const aliases = getAllAlias()
+	aliases[user] = newAlias
+
+	fs.writeFileSync(ALIASES_FILE_PATH, JSON.stringify(aliases))
+}
