@@ -1,12 +1,22 @@
-import * as dotenv from "dotenv"
+import * as dotenv from 'dotenv'
 dotenv.config()
 
-import { REST, Routes } from "discord.js"
-import { commandsConfig } from "../src/"
+import { REST, Routes } from 'discord.js'
+import { commandsConfig } from '../src/'
 
 const BOT_ID = process.env.DISCORD_APP_ID
+const TOKEN = process.env.TOKEN
+
+if (!BOT_ID) {
+	throw new Error('DISCORD_APP_ID env is undefined. Please specify DISCORD_APP_ID in environment variables')
+}
+
+if (!TOKEN) {
+	throw new Error('TOKEN env is undefined. Please specify TOKEN in environment variables')
+}
+
 const commands = Object.values(commandsConfig).map((item) => item.data.toJSON())
-const rest = new REST({ version: "10" }).setToken(process.env.TOKEN)
+const rest = new REST({ version: '10' }).setToken(TOKEN)
 
 ;(async () => {
 	try {

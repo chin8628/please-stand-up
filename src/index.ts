@@ -15,8 +15,8 @@ import {
 } from 'discord.js'
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnection } from '@discordjs/voice'
 import discordTTS from 'discord-tts'
-import * as fs from 'fs'
 import * as logger from 'npmlog'
+import { getAllAlias, saveAlias } from './repository/alias'
 
 const MAX_TEMPLATE_LETTER = 100
 
@@ -118,15 +118,11 @@ export const commandsConfig = {
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
 			const userID = interaction.user.id
-			const name = interaction.options?.getString('name')
+			const aliasName = interaction.options?.getString('name')
 
-			// Set Alias name to some storage with userID
-			const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+' })
-			const alias = JSON.parse(aliasFile)
-			alias[userID] = name
-			fs.writeFileSync(__dirname + '/alias.json', JSON.stringify(alias))
+			saveAlias(userID, aliasName)
 
-			await interaction.reply({ content: `Bot remembered you as ${name}`, ephemeral: true })
+			await interaction.reply({ content: `Bot remembered you as ${aliasName}`, ephemeral: true })
 		},
 	},
 }
@@ -149,13 +145,8 @@ class Joiner {
 			return
 		}
 
-		let name = member.displayName
-		// Find user id match with alias
-		const aliasFile = fs.readFileSync(__dirname + '/alias.json', { encoding: 'utf8', flag: 'r+' })
-		const alias = JSON.parse(aliasFile)
-		if (alias[member.id]) {
-			name = alias[member.id]
-		}
+		const alias = getAllAlias()
+		const name = alias[member.id] || member.displayName
 
 		this.joiners.push(name)
 		const currentJoinersLength = this.joiners.length
