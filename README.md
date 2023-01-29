@@ -33,6 +33,12 @@ There are two options to install/run a bot.
 
 You need to specify environment variables before starting the bot. Please read the next section.
 
+### For docker user
+
+`docker run -v please-stand-up:/data chin8628/please-stand-up:latest`
+
+`/data` keeps aliases data file. All aliases can be lost if the directory wasn't mounted to host.
+
 ### Environment Variables
 
 The bot needs `.env` file at root project directory. You can an example field in `.env.example`
