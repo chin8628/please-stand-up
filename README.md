@@ -1,3 +1,5 @@
+![workflow status badge](https://github.com/chin8628/please-stand-up/actions/workflows/pipeline.yaml/badge.svg?branch=main)
+
 ![image](https://user-images.githubusercontent.com/2943187/207028355-a0254b12-4bb7-4011-ad83-bb346d80f127.png)
 
 # Please Stand Up
