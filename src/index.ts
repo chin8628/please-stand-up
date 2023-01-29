@@ -17,11 +17,11 @@ import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnecti
 import discordTTS from 'discord-tts'
 import * as logger from 'npmlog'
 import { getAllAlias, saveAlias } from './repository/alias'
+import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './repository/speechTemplate'
 
 const MAX_TEMPLATE_LETTER = 100
 
 let enabledSayMyName = true
-let joinChannelTemplate = '{name} เข้ามาจ้า'
 let leftChannelTemplate = '{name} ออกไปแล้วจ้า'
 let botConnection: VoiceConnection
 
@@ -54,25 +54,22 @@ export const commandsConfig = {
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
-			const unsanitizedTemplate = interaction.options.getString('template')
-			if (!unsanitizedTemplate?.includes('{name}')) {
-				await interaction.reply({
-					content: 'Template is wrong. Could not find {name} in the teamplate.',
-					ephemeral: true,
-				})
+			const newTemplate = interaction.options.getString('template')
+
+			try {
+				setJoiningSpeechTemplate(newTemplate)
+			} catch (error: any) {
+				if (error instanceof Error) {
+					await interaction.reply({
+						content: error.message,
+						ephemeral: true,
+					})
+				}
+
 				return
 			}
 
-			if (unsanitizedTemplate.length > MAX_TEMPLATE_LETTER) {
-				await interaction.reply({
-					content: `Template cannot be longer than ${MAX_TEMPLATE_LETTER} letters.`,
-					ephemeral: true,
-				})
-				return
-			}
-
-			joinChannelTemplate = unsanitizedTemplate
-			await interaction.reply({ content: `Successfully updates a template! New teamplate is: ${joinChannelTemplate}` })
+			await interaction.reply({ content: `Successfully updates a template! New teamplate is: ${newTemplate}` })
 		},
 	},
 	set_left_template: {
@@ -165,7 +162,7 @@ class Joiner {
 					text = `มี ${this.joiners.length} ออกไปแล้ว`
 				}
 			} else if (type === 'join') {
-				text = joinChannelTemplate.replace('{name}', name)
+				text = getJoiningSpeechTemplate().replace('{name}', name)
 			} else if (type === 'left') {
 				text = leftChannelTemplate.replace('{name}', name)
 			}
