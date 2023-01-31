@@ -1,4 +1,4 @@
-import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './speechTemplate'
+import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './joinChannelSpeechTemplate'
 
 describe('Speech Template Repository', () => {
 	it('should get joining template with its default value when no one updated it yet', () => {

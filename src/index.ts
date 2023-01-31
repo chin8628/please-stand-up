@@ -17,12 +17,11 @@ import { joinVoiceChannel, createAudioPlayer, createAudioResource, VoiceConnecti
 import discordTTS from 'discord-tts'
 import * as logger from 'npmlog'
 import { getAllAlias, saveAlias } from './repository/alias'
-import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './repository/speechTemplate'
-
-const MAX_TEMPLATE_LETTER = 100
+import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
+import { getLeavingSpeechTemplate, setLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
+import { MAX_SPEECH_TEMPLATE_LETTERS } from './repository/constants'
 
 let enabledSayMyName = true
-let leftChannelTemplate = '{name} ออกไปแล้วจ้า'
 let botConnection: VoiceConnection
 
 // TODO: Extract this config to separated file.
@@ -49,7 +48,7 @@ export const commandsConfig = {
 				option
 					.setName('template')
 					.setDescription(
-						`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} เข้ามาจ้า"`
+						`Text2Speech template. Maximum is ${MAX_SPEECH_TEMPLATE_LETTERS} letters. Example: "{name} เข้ามาจ้า"`
 					)
 					.setRequired(true)
 			),
@@ -80,30 +79,27 @@ export const commandsConfig = {
 				option
 					.setName('template')
 					.setDescription(
-						`Text2Speech template. Maximum is ${MAX_TEMPLATE_LETTER} letters. Example: "{name} ออกไปแล้วจ้า"`
+						`Text2Speech template. Maximum is ${MAX_SPEECH_TEMPLATE_LETTERS} letters. Example: "{name} ออกไปแล้วจ้า"`
 					)
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
-			const unsanitizedTemplate = interaction.options.getString('template')
-			if (!unsanitizedTemplate?.includes('{name}')) {
-				await interaction.reply({
-					content: 'Template is wrong. Could not find {name} in the teamplate.',
-					ephemeral: true,
-				})
+			const newTemplate = interaction.options.getString('template')
+
+			try {
+				setLeavingSpeechTemplate(newTemplate)
+			} catch (error: any) {
+				if (error instanceof Error) {
+					await interaction.reply({
+						content: error.message,
+						ephemeral: true,
+					})
+				}
+
 				return
 			}
 
-			if (unsanitizedTemplate.length > MAX_TEMPLATE_LETTER) {
-				await interaction.reply({
-					content: `Template cannot be longer than ${MAX_TEMPLATE_LETTER} letters.`,
-					ephemeral: true,
-				})
-				return
-			}
-
-			leftChannelTemplate = unsanitizedTemplate
-			await interaction.reply({ content: `Successfully updates a template! New teamplate is: ${leftChannelTemplate}` })
+			await interaction.reply({ content: `Successfully updates a template! New teamplate is: ${newTemplate}` })
 		},
 	},
 	callme: {
@@ -164,7 +160,7 @@ class Joiner {
 			} else if (type === 'join') {
 				text = getJoiningSpeechTemplate().replace('{name}', name)
 			} else if (type === 'left') {
-				text = leftChannelTemplate.replace('{name}', name)
+				text = getLeavingSpeechTemplate().replace('{name}', name)
 			}
 
 			speak(text)

@@ -1,4 +1,5 @@
-const MAX_TEMPLATE_LETTER = 80
+import { MAX_SPEECH_TEMPLATE_LETTERS } from './constants'
+
 let joinChannelTemplate = '{name} เข้ามาจ้า'
 
 export const getJoiningSpeechTemplate = (): string => {
@@ -6,8 +7,8 @@ export const getJoiningSpeechTemplate = (): string => {
 }
 
 export const setJoiningSpeechTemplate = (template: string) => {
-	if (template.length > MAX_TEMPLATE_LETTER) {
-		throw new Error(`Template cannot be longer than ${MAX_TEMPLATE_LETTER} letters`)
+	if (template.length > MAX_SPEECH_TEMPLATE_LETTERS) {
+		throw new Error(`Template cannot be longer than ${MAX_SPEECH_TEMPLATE_LETTERS} letters`)
 	}
 
 	if (!template.includes('{name}')) {
