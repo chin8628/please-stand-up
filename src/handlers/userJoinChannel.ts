@@ -22,15 +22,11 @@ export const userJoinChannel = (newState: VoiceState) => {
 		return
 	}
 
-	if (!voiceConnection || newState.channel?.id) {
-		joinVoiceChannel({
-			channelId: newState.channel.id,
-			guildId: newState.guild.id,
-			adapterCreator: newState.guild.voiceAdapterCreator,
-			selfMute: false,
-			selfDeaf: false,
-		})
-	}
-
-	queueSpeaker(newState.guild, newState.member, SpeakerQueueType.Join)
+	queueSpeaker(SpeakerQueueType.Join, {
+		guildId: newState.guild.id,
+		channelId: newState.channelId,
+		memberId: newState.member.id,
+		displayName: newState.member.displayName,
+		adapterCreator: newState.guild.voiceAdapterCreator,
+	})
 }
