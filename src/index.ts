@@ -4,11 +4,14 @@ import * as dotenv from 'dotenv'
 // Must be invoked before all statements
 dotenv.config()
 
-import { Client, Interaction, IntentsBitField, SlashCommandBuilder, VoiceState } from 'discord.js'
-import { joinVoiceChannel, VoiceConnection } from '@discordjs/voice'
+import { Client, Interaction, IntentsBitField, SlashCommandBuilder } from 'discord.js'
+import { VoiceConnection } from '@discordjs/voice'
 import { slashCommandsConfig } from './slashCommands'
-import { queueSpeaker, SpeakerQueueType } from './SpeakerQueue'
 import logger from 'npmlog'
+import { isPleaseStandUp } from './helpers/isPleaseStandUp'
+import { userMovedToAFKHandler } from './handlers/userMovedToAFK'
+import { userJoinChannel } from './handlers/userJoinChannel'
+import { userLeftChannel } from './handlers/userLeftChannel'
 
 let enabledSayMyName = true
 let botConnection: VoiceConnection
@@ -41,80 +44,9 @@ client.on('ready', () => {
 	logger.info('', `Logged in as ${client.user.tag}!`)
 })
 
-const isPleaseStandUp = (newState: VoiceState): boolean => newState.member.id === process.env.DISCORD_APP_ID
-
-function userLeftChannel(prevState: VoiceState) {
-	if (isPleaseStandUp(prevState)) return
-	// skip in limit member channel
-	if (prevState.channel.userLimit != 0) return
-	// skip when only one member in channel
-	if (prevState.channel.members.size === 0) {
-		if (botConnection) {
-			botConnection.destroy()
-		}
-		return
-	}
-
-	if (!botConnection || prevState.channel?.id) {
-		botConnection = joinVoiceChannel({
-			channelId: prevState.channel.id,
-			guildId: prevState.guild.id,
-			adapterCreator: prevState.guild.voiceAdapterCreator,
-			selfMute: false,
-			selfDeaf: false,
-		})
-	}
-
-	queueSpeaker(botConnection, prevState.member, SpeakerQueueType.Left)
-}
-
-function userJoinChannel(newState: VoiceState) {
-	if (isPleaseStandUp(newState)) return
-	// skip when only one member in channel
-	if (newState.channel.members.size === 1) return
-	// skip in limit member channel
-	if (newState.channel.userLimit != 0) return
-	// skip when try to join afk channel
-	if (newState.guild.afkChannelId === newState.channelId) return
-	// skip & disconnect from channel when no one else
-	if (newState.channel.members.size === 0) {
-		if (botConnection) {
-			botConnection.destroy()
-		}
-		return
-	}
-
-	if (!botConnection || newState.channel?.id) {
-		botConnection = joinVoiceChannel({
-			channelId: newState.channel.id,
-			guildId: newState.guild.id,
-			adapterCreator: newState.guild.voiceAdapterCreator,
-			selfMute: false,
-			selfDeaf: false,
-		})
-	}
-
-	queueSpeaker(botConnection, newState.member, SpeakerQueueType.Join)
-}
-
-const userMovedToAFKHandler = (prevState: VoiceState, newState: VoiceState) => {
-	if (isPleaseStandUp(newState)) return
-
-	if (!botConnection || prevState.channel?.id) {
-		botConnection = joinVoiceChannel({
-			channelId: prevState.channel.id,
-			guildId: prevState.guild.id,
-			adapterCreator: prevState.guild.voiceAdapterCreator,
-			selfMute: false,
-			selfDeaf: false,
-		})
-	}
-
-	queueSpeaker(botConnection, newState.member, SpeakerQueueType.Join)
-}
-
 client.on('voiceStateUpdate', async (prevState, newState) => {
 	if (!enabledSayMyName) return
+	if (isPleaseStandUp(newState)) return
 
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
 	if (isNotChannelUpdateEvent) {
@@ -123,20 +55,17 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 
 	const isUserMovedToAFK = newState.guild.afkChannelId === newState.channelId
 	if (isUserMovedToAFK) {
-		logger.info('', newState.member.displayName, 'is moved to AFK channel')
-		userMovedToAFKHandler(prevState, newState)
+		userMovedToAFKHandler(botConnection, prevState, newState)
 	}
 
 	const isLeftChannel = !newState.channel?.id && !!prevState.channel?.id
 	if (isLeftChannel) {
-		logger.info('', newState.member.displayName, 'lefted a channel')
-		userLeftChannel(prevState)
+		userLeftChannel(botConnection, prevState)
 	}
 
 	const isJoinChannel = !prevState.channel?.id && !!newState.channel?.id
 	if (isJoinChannel) {
-		logger.info('', newState.member.displayName, 'joined a channel')
-		userJoinChannel(newState)
+		userJoinChannel(botConnection, newState)
 	}
 })
 

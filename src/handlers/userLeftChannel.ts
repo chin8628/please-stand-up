@@ -3,8 +3,18 @@ import { VoiceState } from 'discord.js'
 import { queueSpeaker, SpeakerQueueType } from '../SpeakerQueue'
 import logger from 'npmlog'
 
-export const userMovedToAFKHandler = (botConnection: VoiceConnection, prevState: VoiceState, newState: VoiceState) => {
-	logger.info('', newState.member.displayName, 'is moved to AFK channel')
+export const userLeftChannel = (botConnection: VoiceConnection, prevState: VoiceState) => {
+	logger.info('', prevState.member.displayName, 'lefted a channel')
+
+	// skip in limit member channel
+	if (prevState.channel.userLimit != 0) return
+	// skip when only one member in channel
+	if (prevState.channel.members.size === 0) {
+		if (botConnection) {
+			botConnection.destroy()
+		}
+		return
+	}
 
 	if (!botConnection || prevState.channel?.id) {
 		botConnection = joinVoiceChannel({
@@ -16,5 +26,5 @@ export const userMovedToAFKHandler = (botConnection: VoiceConnection, prevState:
 		})
 	}
 
-	queueSpeaker(botConnection, newState.member, SpeakerQueueType.Afk)
+	queueSpeaker(botConnection, prevState.member, SpeakerQueueType.Left)
 }

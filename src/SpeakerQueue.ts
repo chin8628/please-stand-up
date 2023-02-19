@@ -74,7 +74,6 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 
 export const consumeQueueWithDelay = (botConnection: VoiceConnection) => {
 	setTimeout(() => {
-		console.log('test')
 		if (queue.length === 0) {
 			return
 		}
