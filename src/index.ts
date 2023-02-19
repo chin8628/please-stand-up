@@ -48,7 +48,7 @@ function speak(text: string) {
 class Joiner {
 	private joiners = []
 
-	public push(member: GuildMember, type: 'left' | 'join') {
+	public push(member: GuildMember, type: 'left' | 'join' | 'afk') {
 		if (this.joiners.includes(member.displayName)) {
 			return
 		}
@@ -67,15 +67,26 @@ class Joiner {
 
 			let text = ''
 			if (this.joiners.length > 1) {
-				if (type === 'join') {
-					text = `มี ${this.joiners.length} คนเข้ามาจ้า`
-				} else if (type === 'left') {
-					text = `มี ${this.joiners.length} ออกไปแล้ว`
+				switch (type) {
+					case 'join':
+						text = `มี ${this.joiners.length} คน เข้ามาจ้า`
+						break
+					case 'left':
+						text = `มี ${this.joiners.length} คน ออกไปแล้ว`
+						break
+					case 'afk':
+						text = `มี ${this.joiners.length} คน afk จ้า`
+						break
+					default:
+						logger.info(`tts event type isn't handled properly. type is [${type}].`)
+						break
 				}
 			} else if (type === 'join') {
 				text = getJoiningSpeechTemplate().replace('{name}', name)
 			} else if (type === 'left') {
 				text = getLeavingSpeechTemplate().replace('{name}', name)
+			} else if (type === 'afk') {
+				text = '{name} afk จ้า'.replace('{name}', name)
 			}
 
 			speak(text)
@@ -95,12 +106,10 @@ client.on('ready', () => {
 	logger.info(`Logged in as ${client.user.tag}!`)
 })
 
-function isBot(state: VoiceState) {
-	return state.member.user.bot
-}
+const isPleaseStandUp = (newState: VoiceState): boolean => newState.member.id === process.env.DISCORD_APP_ID
 
 function userLeftChannel(prevState: VoiceState) {
-	if (isBot(prevState)) return
+	if (isPleaseStandUp(prevState)) return
 	// skip in limit member channel
 	if (prevState.channel.userLimit != 0) return
 	// skip when only one member in channel
@@ -126,7 +135,7 @@ function userLeftChannel(prevState: VoiceState) {
 }
 
 function userJoinChannel(newState: VoiceState) {
-	if (isBot(newState)) return
+	if (isPleaseStandUp(newState)) return
 	// skip when only one member in channel
 	if (newState.channel.members.size === 1) return
 	// skip in limit member channel
@@ -154,6 +163,22 @@ function userJoinChannel(newState: VoiceState) {
 	joiner.push(newState.member, 'join')
 }
 
+const userMovedToAFKHandler = (prevState: VoiceState, newState: VoiceState) => {
+	if (isPleaseStandUp(newState)) return
+
+	if (!botConnection || prevState.channel?.id) {
+		botConnection = joinVoiceChannel({
+			channelId: prevState.channel.id,
+			guildId: prevState.guild.id,
+			adapterCreator: prevState.guild.voiceAdapterCreator,
+			selfMute: false,
+			selfDeaf: false,
+		})
+	}
+
+	joiner.push(newState.member, 'afk')
+}
+
 client.on('voiceStateUpdate', async (prevState, newState) => {
 	if (!enabledSayMyName) return
 
@@ -162,12 +187,20 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 		return
 	}
 
+	const isUserMovedToAFK = newState.guild.afkChannelId === newState.channelId
+	if (isUserMovedToAFK) {
+		logger.info(newState.member.displayName, 'is moved to AFK channel')
+		userMovedToAFKHandler(prevState, newState)
+	}
+
 	const isLeftChannel = !newState.channel?.id && !!prevState.channel?.id
-	const isJoinChannel = !prevState.channel?.id && !!newState.channel?.id
 	if (isLeftChannel) {
 		logger.info(newState.member.displayName, 'lefted a channel')
 		userLeftChannel(prevState)
-	} else if (isJoinChannel) {
+	}
+
+	const isJoinChannel = !prevState.channel?.id && !!newState.channel?.id
+	if (isJoinChannel) {
 		logger.info(newState.member.displayName, 'joined a channel')
 		userJoinChannel(newState)
 	}

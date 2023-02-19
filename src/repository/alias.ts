@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 
-const ALIASES_FILE_PATH = '/data/alias.json'
+const ALIASES_FILE_PATH = './data/alias.json'
 
 export const getAllAlias = (): Record<string, string> => {
 	const aliasesFile = fs.readFileSync(ALIASES_FILE_PATH, { encoding: 'utf8', flag: 'r+' })
