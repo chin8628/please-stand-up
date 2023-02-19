@@ -4,7 +4,7 @@ import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import logger from 'npmlog'
 import discordTTS from 'discord-tts'
-import { createAudioPlayer, createAudioResource, getVoiceConnection, VoiceConnection } from '@discordjs/voice'
+import { createAudioPlayer, createAudioResource, getVoiceConnection } from '@discordjs/voice'
 
 export enum SpeakerQueueType {
 	Left = 'left',
