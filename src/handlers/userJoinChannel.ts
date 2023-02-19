@@ -1,4 +1,4 @@
-import { getVoiceConnection, joinVoiceChannel } from '@discordjs/voice'
+import { getVoiceConnection } from '@discordjs/voice'
 import { VoiceState } from 'discord.js'
 import { queueSpeaker, SpeakerQueueType } from '../SpeakerQueue'
 import logger from 'npmlog'
