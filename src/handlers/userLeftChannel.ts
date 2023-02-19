@@ -1,23 +1,27 @@
-import { joinVoiceChannel, VoiceConnection } from '@discordjs/voice'
+import { getVoiceConnection, joinVoiceChannel } from '@discordjs/voice'
 import { VoiceState } from 'discord.js'
 import { queueSpeaker, SpeakerQueueType } from '../SpeakerQueue'
 import logger from 'npmlog'
 
-export const userLeftChannel = (botConnection: VoiceConnection, prevState: VoiceState) => {
+export const userLeftChannel = (prevState: VoiceState) => {
 	logger.info('', prevState.member.displayName, 'lefted a channel')
+
+	const voiceConnection = getVoiceConnection(prevState.guild.id)
 
 	// skip in limit member channel
 	if (prevState.channel.userLimit != 0) return
 	// skip when only one member in channel
 	if (prevState.channel.members.size === 0) {
-		if (botConnection) {
-			botConnection.destroy()
-		}
 		return
 	}
 
-	if (!botConnection || prevState.channel?.id) {
-		botConnection = joinVoiceChannel({
+	if (prevState.channel.members.size === 1 && !!prevState.channel.members.get(process.env.DISCORD_APP_ID)) {
+		voiceConnection.destroy()
+		return
+	}
+
+	if (!voiceConnection || prevState.channel?.id) {
+		joinVoiceChannel({
 			channelId: prevState.channel.id,
 			guildId: prevState.guild.id,
 			adapterCreator: prevState.guild.voiceAdapterCreator,
@@ -26,5 +30,5 @@ export const userLeftChannel = (botConnection: VoiceConnection, prevState: Voice
 		})
 	}
 
-	queueSpeaker(botConnection, prevState.member, SpeakerQueueType.Left)
+	queueSpeaker(prevState.guild, prevState.member, SpeakerQueueType.Left)
 }

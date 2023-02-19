@@ -5,7 +5,6 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 import { Client, Interaction, IntentsBitField, SlashCommandBuilder } from 'discord.js'
-import { VoiceConnection } from '@discordjs/voice'
 import { slashCommandsConfig } from './slashCommands'
 import logger from 'npmlog'
 import { isPleaseStandUp } from './helpers/isPleaseStandUp'
@@ -14,7 +13,6 @@ import { userJoinChannel } from './handlers/userJoinChannel'
 import { userLeftChannel } from './handlers/userLeftChannel'
 
 let enabledSayMyName = true
-let botConnection: VoiceConnection
 
 // TODO: Extract this config to separated file.
 export const commandsConfig = {
@@ -55,17 +53,17 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 
 	const isUserMovedToAFK = newState.guild.afkChannelId === newState.channelId
 	if (isUserMovedToAFK) {
-		userMovedToAFKHandler(botConnection, prevState, newState)
+		userMovedToAFKHandler(prevState, newState)
 	}
 
 	const isLeftChannel = !newState.channel?.id && !!prevState.channel?.id
 	if (isLeftChannel) {
-		userLeftChannel(botConnection, prevState)
+		userLeftChannel(prevState)
 	}
 
 	const isJoinChannel = !prevState.channel?.id && !!newState.channel?.id
 	if (isJoinChannel) {
-		userJoinChannel(botConnection, newState)
+		userJoinChannel(newState)
 	}
 })
 

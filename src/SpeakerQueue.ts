@@ -1,10 +1,10 @@
-import { GuildMember } from 'discord.js'
+import { Guild, GuildMember } from 'discord.js'
 import { getAllAlias } from './repository/alias'
 import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import logger from 'npmlog'
 import discordTTS from 'discord-tts'
-import { createAudioPlayer, createAudioResource, VoiceConnection } from '@discordjs/voice'
+import { createAudioPlayer, createAudioResource, getVoiceConnection, VoiceConnection } from '@discordjs/voice'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -14,6 +14,7 @@ export enum SpeakerQueueType {
 
 type QueueItemPayload = {
 	member: GuildMember
+	guild: Guild
 }
 
 type QueueItem = {
@@ -23,17 +24,20 @@ type QueueItem = {
 
 let queue: QueueItem[] = []
 
-const speak = (botConnection: VoiceConnection, text: string) => {
+const speak = (guildId: string, text: string) => {
+	logger.info('', `Bot said "${text}"`)
+	const voiceConnection = getVoiceConnection(guildId)
+
 	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
 	const audioPlayer = createAudioPlayer()
-	const subscription = botConnection.subscribe(audioPlayer)
+	const subscription = voiceConnection.subscribe(audioPlayer)
 	audioPlayer.play(resource)
 	if (subscription) {
 		setTimeout(() => subscription.unsubscribe(), 10_000)
 	}
 }
 
-export const queueSpeaker = (botConnection: VoiceConnection, member: GuildMember, type: SpeakerQueueType) => {
+export const queueSpeaker = (guild: Guild, member: GuildMember, type: SpeakerQueueType) => {
 	if (queue.find((item) => item.payload.member.id === member.id)) {
 		return
 	}
@@ -41,11 +45,12 @@ export const queueSpeaker = (botConnection: VoiceConnection, member: GuildMember
 	queue.push({
 		type,
 		payload: {
+			guild,
 			member,
 		},
 	})
 
-	consumeQueueWithDelay(botConnection)
+	consumeQueueWithDelay()
 }
 
 const getTextSpeechForMultipleMember = (queueSize: number, type: SpeakerQueueType): string => {
@@ -72,24 +77,25 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 	}
 }
 
-export const consumeQueueWithDelay = (botConnection: VoiceConnection) => {
+export const consumeQueueWithDelay = () => {
 	setTimeout(() => {
 		if (queue.length === 0) {
 			return
 		}
 
-		let text = ''
 		if (queue.length > 1) {
-			text = getTextSpeechForMultipleMember(queue.length, queue[0].type)
+			const text = getTextSpeechForMultipleMember(queue.length, queue[0].type)
+			speak(queue[0].payload.guild.id, text)
+
 			queue = []
 		} else {
 			const { payload, type } = queue.shift()
+
 			const alias = getAllAlias()
 			const name = alias[payload.member.id] || payload.member.displayName
-			text = getTextSpeechForSingleMember(name, type)
-		}
+			const text = getTextSpeechForSingleMember(name, type)
 
-		logger.info('', `Bot said "${text}"`)
-		speak(botConnection, text)
+			speak(payload.guild.id, text)
+		}
 	}, 1500)
 }

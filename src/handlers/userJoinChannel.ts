@@ -1,10 +1,12 @@
-import { joinVoiceChannel, VoiceConnection } from '@discordjs/voice'
+import { getVoiceConnection, joinVoiceChannel } from '@discordjs/voice'
 import { VoiceState } from 'discord.js'
 import { queueSpeaker, SpeakerQueueType } from '../SpeakerQueue'
 import logger from 'npmlog'
 
-export const userJoinChannel = (botConnection: VoiceConnection, newState: VoiceState) => {
+export const userJoinChannel = (newState: VoiceState) => {
 	logger.info('', newState.member.displayName, 'joined a channel')
+
+	const voiceConnection = getVoiceConnection(newState.guild.id)
 
 	// skip when only one member in channel
 	if (newState.channel.members.size === 1) return
@@ -14,14 +16,14 @@ export const userJoinChannel = (botConnection: VoiceConnection, newState: VoiceS
 	if (newState.guild.afkChannelId === newState.channelId) return
 	// skip & disconnect from channel when no one else
 	if (newState.channel.members.size === 0) {
-		if (botConnection) {
-			botConnection.destroy()
+		if (voiceConnection) {
+			voiceConnection.destroy()
 		}
 		return
 	}
 
-	if (!botConnection || newState.channel?.id) {
-		botConnection = joinVoiceChannel({
+	if (!voiceConnection || newState.channel?.id) {
+		joinVoiceChannel({
 			channelId: newState.channel.id,
 			guildId: newState.guild.id,
 			adapterCreator: newState.guild.voiceAdapterCreator,
@@ -30,5 +32,5 @@ export const userJoinChannel = (botConnection: VoiceConnection, newState: VoiceS
 		})
 	}
 
-	queueSpeaker(botConnection, newState.member, SpeakerQueueType.Join)
+	queueSpeaker(newState.guild, newState.member, SpeakerQueueType.Join)
 }
