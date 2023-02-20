@@ -105,7 +105,7 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 	}
 }
 
-export const consumeQueueWithDelay = () => {
+const consumeQueueWithDelay = () => {
 	setTimeout(() => {
 		if (queue.length === 0) {
 			return
