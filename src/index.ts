@@ -46,7 +46,7 @@ client.on('ready', () => {
 let botTimeoutInstance: NodeJS.Timeout
 client.on('voiceStateUpdate', async (prevState, newState) => {
 	if (!enabledSayMyName) return
-	if (isPleaseStandUp(newState)) return
+	if (isPleaseStandUp(prevState) || isPleaseStandUp(newState)) return
 
 	if (botTimeoutInstance) {
 		clearTimeout(botTimeoutInstance)
@@ -56,7 +56,7 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 		const guildId = prevState.guild?.id || newState.guild?.id
 		const voiceConnection = getVoiceConnection(guildId)
 		voiceConnection.destroy()
-	}, 300_000)
+	}, 180_000)
 
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
 	if (isNotChannelUpdateEvent) {
