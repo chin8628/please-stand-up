@@ -1,3 +1,3 @@
-import { VoiceState } from 'discord.js'
+import { Client, VoiceState } from 'discord.js'
 
-export const isPleaseStandUp = (newState: VoiceState): boolean => newState.member.id === process.env.DISCORD_APP_ID
+export const isPleaseStandUp = (client: Client, state: VoiceState): boolean => client.user.id === state.member?.id
