@@ -1,3 +1,4 @@
+import { getVoiceConnection } from '@discordjs/voice'
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
 import { saveAlias } from './repository/alias'
 import { MAX_SPEECH_TEMPLATE_LETTERS } from './repository/constants'
@@ -7,7 +8,7 @@ import { setLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplat
 export const slashCommandsConfig = {
 	set_join_template: {
 		data: new SlashCommandBuilder()
-			.setName('set_join_template')
+			.setName('setjointemplate')
 			.setDescription('Sets how bot should greeting an user')
 			.addStringOption((option) =>
 				option
@@ -38,7 +39,7 @@ export const slashCommandsConfig = {
 	},
 	set_left_template: {
 		data: new SlashCommandBuilder()
-			.setName('set_left_template')
+			.setName('setlefttemplate')
 			.setDescription('Sets how bot should goodbye an user')
 			.addStringOption((option) =>
 				option
@@ -81,6 +82,13 @@ export const slashCommandsConfig = {
 			saveAlias(userID, aliasName)
 
 			await interaction.reply({ content: `Bot remembered you as ${aliasName}`, ephemeral: true })
+		},
+	},
+	leave: {
+		data: new SlashCommandBuilder().setName('leave').setDescription('ask the bot to disconnect channel nicely'),
+		execute(interaction: ChatInputCommandInteraction) {
+			const voiceConnection = getVoiceConnection(interaction.guild.id)
+			voiceConnection.destroy()
 		},
 	},
 }

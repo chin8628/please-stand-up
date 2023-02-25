@@ -11,7 +11,6 @@ import { isPleaseStandUp } from './helpers/isPleaseStandUp'
 import { userMovedToAFKHandler } from './handlers/userMovedToAFK'
 import { userJoinChannel } from './handlers/userJoinChannel'
 import { userLeftChannel } from './handlers/userLeftChannel'
-import { getVoiceConnection } from '@discordjs/voice'
 
 let enabledSayMyName = true
 
@@ -43,20 +42,9 @@ client.on('ready', () => {
 	logger.info('', `Logged in as ${client.user.tag}!`)
 })
 
-let botTimeoutInstance: NodeJS.Timeout
 client.on('voiceStateUpdate', async (prevState, newState) => {
 	if (!enabledSayMyName) return
 	if (isPleaseStandUp(client, prevState) || isPleaseStandUp(client, newState)) return
-
-	if (botTimeoutInstance) {
-		clearTimeout(botTimeoutInstance)
-	}
-
-	botTimeoutInstance = setTimeout(() => {
-		const guildId = prevState.guild?.id || newState.guild?.id
-		const voiceConnection = getVoiceConnection(guildId)
-		voiceConnection.destroy()
-	}, 180_000)
 
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
 	if (isNotChannelUpdateEvent) {

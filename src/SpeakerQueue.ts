@@ -4,6 +4,7 @@ import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplat
 import logger from 'npmlog'
 import discordTTS from 'discord-tts'
 import {
+	AudioPlayerStatus,
 	createAudioPlayer,
 	createAudioResource,
 	joinVoiceChannel,
@@ -39,6 +40,10 @@ const speak = (voiceConnection: VoiceConnection, text: string) => {
 	const subscription = voiceConnection.subscribe(audioPlayer)
 	audioPlayer.play(resource)
 	logger.info('', `Bot said "${text}"`)
+
+	audioPlayer.once(AudioPlayerStatus.Idle, () => {
+		voiceConnection.destroy()
+	})
 
 	if (subscription) {
 		setTimeout(() => subscription.unsubscribe(), 10_000)
@@ -81,14 +86,16 @@ export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) 
 	consumeQueueWithDelay()
 }
 
-const getTextSpeechForMultipleMember = (queueSize: number, type: SpeakerQueueType): string => {
+const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
+	const speechForNames = names.join(' และ ')
+
 	switch (queue[0].type) {
 		case SpeakerQueueType.Join:
-			return `มี ${queueSize} คน เข้ามาจ้า`
+			return `${speechForNames} เข้ามาจ้า`
 		case SpeakerQueueType.Left:
-			return `มี ${queueSize} คน ออกไปแล้ว`
+			return `${speechForNames} ออกไปแล้ว`
 		case SpeakerQueueType.Afk:
-			return `มี ${queueSize} คน afk จ้า`
+			return `${speechForNames} afk จ้า`
 		default:
 			logger.error('', `tts event type isn't handled properly. type is [${type}].`)
 			throw new Error(`tts event type isn't handled properly. type is [${type}]`)
@@ -105,18 +112,35 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 	}
 }
 
+let timeoutInstance: NodeJS.Timeout
+
 const consumeQueueWithDelay = () => {
-	setTimeout(() => {
+	console.log(JSON.stringify(queue))
+
+	if (timeoutInstance) {
+		clearTimeout(timeoutInstance)
+	}
+
+	timeoutInstance = setTimeout(() => {
+		console.log('inside', JSON.stringify(queue))
+
 		if (queue.length === 0) {
 			return
 		}
 
 		if (queue.length > 1) {
 			const firstQueueItem = queue[0]
-			const text = getTextSpeechForMultipleMember(queue.length, firstQueueItem.type)
+			const names = queue.map((queueItem) => {
+				const alias = getAllAlias()
+				const name = alias[queueItem.payload.memberId] || queueItem.payload.displayName
+
+				return name
+			})
+
+			const text = getTextSpeechForMultipleMember(names, firstQueueItem.type)
 			joinChannelAndSpeak(
 				firstQueueItem.payload.guildId,
-				firstQueueItem.payload.memberId,
+				firstQueueItem.payload.channelId,
 				firstQueueItem.payload.adapterCreator,
 				text
 			)
