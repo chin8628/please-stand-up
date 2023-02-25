@@ -74,9 +74,9 @@ const joinChannelAndSpeak = (
 }
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
-	if (queue.find((item) => item.payload.memberId === payload.memberId)) {
-		return
-	}
+	// if (queue.find((item) => item.payload.memberId === payload.memberId)) {
+	// 	return
+	// }
 
 	queue.push({
 		type,
@@ -115,14 +115,12 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 let timeoutInstance: NodeJS.Timeout
 
 const consumeQueueWithDelay = () => {
-	console.log(JSON.stringify(queue))
-
 	if (timeoutInstance) {
 		clearTimeout(timeoutInstance)
 	}
 
 	timeoutInstance = setTimeout(() => {
-		console.log('inside', JSON.stringify(queue))
+		logger.info('queue consuming', JSON.stringify(queue))
 
 		if (queue.length === 0) {
 			return
@@ -130,6 +128,7 @@ const consumeQueueWithDelay = () => {
 
 		if (queue.length > 1) {
 			const firstQueueItem = queue[0]
+
 			const names = queue.map((queueItem) => {
 				const alias = getAllAlias()
 				const name = alias[queueItem.payload.memberId] || queueItem.payload.displayName
@@ -137,13 +136,24 @@ const consumeQueueWithDelay = () => {
 				return name
 			})
 
-			const text = getTextSpeechForMultipleMember(names, firstQueueItem.type)
-			joinChannelAndSpeak(
-				firstQueueItem.payload.guildId,
-				firstQueueItem.payload.channelId,
-				firstQueueItem.payload.adapterCreator,
-				text
-			)
+			const allDisplayNames = queue.map((item) => item.payload.displayName)
+			if (allDisplayNames.every((i) => allDisplayNames[0] === i)) {
+				const text = `เข้าออกทำเหี้ยอะไร ${names[0]}`
+				joinChannelAndSpeak(
+					firstQueueItem.payload.guildId,
+					firstQueueItem.payload.channelId,
+					firstQueueItem.payload.adapterCreator,
+					text
+				)
+			} else {
+				const text = getTextSpeechForMultipleMember(names, firstQueueItem.type)
+				joinChannelAndSpeak(
+					firstQueueItem.payload.guildId,
+					firstQueueItem.payload.channelId,
+					firstQueueItem.payload.adapterCreator,
+					text
+				)
+			}
 
 			queue = []
 		} else {
