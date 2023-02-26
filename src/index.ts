@@ -4,13 +4,14 @@ import * as dotenv from 'dotenv'
 // Must be invoked before all statements
 dotenv.config()
 
-import { Client, Interaction, IntentsBitField, SlashCommandBuilder } from 'discord.js'
+import { Client, Interaction, IntentsBitField, SlashCommandBuilder, VoiceChannel } from 'discord.js'
 import { slashCommandsConfig } from './slashCommands'
 import logger from 'npmlog'
 import { isPleaseStandUp } from './helpers/isPleaseStandUp'
 import { userMovedToAFKHandler } from './handlers/userMovedToAFK'
 import { userJoinChannel } from './handlers/userJoinChannel'
 import { userLeftChannel } from './handlers/userLeftChannel'
+import { getVoiceConnection } from '@discordjs/voice'
 
 let enabledSayMyName = true
 
@@ -49,6 +50,25 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
 	if (isNotChannelUpdateEvent) {
 		return
+	}
+
+	for (const channel of client.channels.cache.values()) {
+		if (channel.isVoiceBased) {
+			const voiceChannel = channel as VoiceChannel
+
+			if (voiceChannel.members.has(client.user.id) && voiceChannel.members.size === 1) {
+				const voiceConnection = getVoiceConnection(voiceChannel.guildId)
+				voiceConnection.destroy()
+				logger.info('bot state', 'leaved')
+
+				return
+			}
+		}
+	}
+
+	const isSwitchChannel = prevState.channelId && newState.channelId && prevState.channelId !== newState.channelId
+	if (isSwitchChannel) {
+		// Do nothing
 	}
 
 	const isUserMovedToAFK = prevState.channelId && newState.guild.afkChannelId === newState.channelId

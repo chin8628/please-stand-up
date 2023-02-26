@@ -4,7 +4,6 @@ import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplat
 import logger from 'npmlog'
 import discordTTS from 'discord-tts'
 import {
-	AudioPlayerStatus,
 	createAudioPlayer,
 	createAudioResource,
 	joinVoiceChannel,
@@ -40,10 +39,6 @@ const speak = (voiceConnection: VoiceConnection, text: string) => {
 	const subscription = voiceConnection.subscribe(audioPlayer)
 	audioPlayer.play(resource)
 	logger.info('', `Bot said "${text}"`)
-
-	audioPlayer.once(AudioPlayerStatus.Idle, () => {
-		voiceConnection.destroy()
-	})
 
 	if (subscription) {
 		setTimeout(() => subscription.unsubscribe(), 10_000)
