@@ -53,15 +53,18 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 	}
 
 	for (const channel of client.channels.cache.values()) {
-		if (channel.isVoiceBased) {
+		if (channel.isVoiceBased()) {
 			const voiceChannel = channel as VoiceChannel
 
 			if (voiceChannel.members.has(client.user.id) && voiceChannel.members.size === 1) {
 				const voiceConnection = getVoiceConnection(voiceChannel.guildId)
-				voiceConnection.destroy()
-				logger.info('bot state', 'leaved')
 
-				return
+				if (voiceConnection) {
+					voiceConnection.destroy()
+					logger.info('bot state', 'leaved')
+
+					return
+				}
 			}
 		}
 	}
