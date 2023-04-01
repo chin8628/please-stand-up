@@ -158,6 +158,14 @@ const consumeQueueWithDelay = () => {
 			const name = alias[payload.memberId] || payload.displayName
 			const text = getTextSpeechForSingleMember(name, type)
 
+			logger.info(
+				'execute joinChannelAndSpeak()',
+				JSON.stringify({
+					guildId: payload.guildId,
+					channelId: payload.channelId,
+					text,
+				})
+			)
 			joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
 		}
 	}, 1500)
