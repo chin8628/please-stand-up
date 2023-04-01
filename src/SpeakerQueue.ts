@@ -34,11 +34,12 @@ type QueueItem = {
 let queue: QueueItem[] = []
 
 const speak = (voiceConnection: VoiceConnection, text: string) => {
+	logger.info('speak()', `request tts resource: "${text}"`)
 	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
 	const audioPlayer = createAudioPlayer()
 	const subscription = voiceConnection.subscribe(audioPlayer)
 	audioPlayer.play(resource)
-	logger.info('', `Bot said "${text}"`)
+	logger.info('speak()', `Bot said "${text}"`)
 
 	if (subscription) {
 		setTimeout(() => subscription.unsubscribe(), 10_000)
