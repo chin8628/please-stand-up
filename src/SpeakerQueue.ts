@@ -47,26 +47,6 @@ const speak = (voiceConnection: VoiceConnection, text: string) => {
 	}
 }
 
-const waitUntilReady = async (guildId: string) => {
-	let status: VoiceConnectionStatus
-	let delayPower = 1
-	while (status !== VoiceConnectionStatus.Ready) {
-		const delay = 2 ** delayPower
-		await new Promise((resolve) => {
-			setTimeout(() => resolve(0), delay)
-		})
-
-		const vc = getVoiceConnection(guildId)
-		status = vc.state.status
-		if (delayPower >= 10) {
-			logger.warn('waitUntilReady', `reconfiguring network at ${delay} seconds`)
-			vc.configureNetworking()
-		}
-
-		delayPower++
-	}
-}
-
 const joinChannelAndSpeak = async (
 	guildId: string,
 	channelId: string,
@@ -81,7 +61,6 @@ const joinChannelAndSpeak = async (
 		selfDeaf: false,
 	})
 
-	await waitUntilReady(guildId)
 	speak(voiceConnection, text)
 }
 
