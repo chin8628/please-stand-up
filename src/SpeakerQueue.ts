@@ -60,13 +60,9 @@ const joinChannelAndSpeak = (
 		selfDeaf: false,
 	})
 
-	if (voiceConnection.state.status === VoiceConnectionStatus.Ready) {
+	voiceConnection.once(VoiceConnectionStatus.Ready, () => {
 		speak(voiceConnection, text)
-	} else {
-		voiceConnection.once(VoiceConnectionStatus.Ready, () => {
-			speak(voiceConnection, text)
-		})
-	}
+	})
 }
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
