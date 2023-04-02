@@ -3,13 +3,7 @@ import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import logger from 'npmlog'
 import discordTTS from 'discord-tts'
-import {
-	createAudioPlayer,
-	createAudioResource,
-	joinVoiceChannel,
-	VoiceConnection,
-	VoiceConnectionStatus,
-} from '@discordjs/voice'
+import { createAudioPlayer, createAudioResource, joinVoiceChannel, VoiceConnection } from '@discordjs/voice'
 import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
 
 export enum SpeakerQueueType {
@@ -60,9 +54,7 @@ const joinChannelAndSpeak = (
 		selfDeaf: false,
 	})
 
-	voiceConnection.once(VoiceConnectionStatus.Ready, () => {
-		speak(voiceConnection, text)
-	})
+	speak(voiceConnection, text)
 }
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
@@ -155,14 +147,6 @@ const consumeQueueWithDelay = () => {
 			const name = alias[payload.memberId] || payload.displayName
 			const text = getTextSpeechForSingleMember(name, type)
 
-			logger.info(
-				'execute joinChannelAndSpeak()',
-				JSON.stringify({
-					guildId: payload.guildId,
-					channelId: payload.channelId,
-					text,
-				})
-			)
 			joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
 		}
 	}, 1500)
