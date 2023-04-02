@@ -58,6 +58,11 @@ const waitUntilReady = async (guildId: string) => {
 
 		const vc = getVoiceConnection(guildId)
 		status = vc.state.status
+		if (delayPower >= 10) {
+			logger.warn('waitUntilReady', `reconfiguring network at ${delay} seconds`)
+			vc.configureNetworking()
+		}
+
 		delayPower++
 	}
 }
