@@ -41,7 +41,6 @@
     "ffmpeg-static": "^4.4.1",
     "google-tts-api": "^2.0.2",
     "libsodium-wrappers": "^0.7.9",
-    "npmlog": "^7.0.1",
-    "prisma": "^4.7.1"
+    "npmlog": "^7.0.1"
   }
 }
