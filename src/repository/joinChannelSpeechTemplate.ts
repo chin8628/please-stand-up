@@ -1,6 +1,6 @@
 import { MAX_SPEECH_TEMPLATE_LETTERS } from './constants'
 
-let joinChannelTemplate = '{name} เข้ามาจ้า'
+let joinChannelTemplate = '{name}'
 
 export const getJoiningSpeechTemplate = (): string => {
 	return joinChannelTemplate
