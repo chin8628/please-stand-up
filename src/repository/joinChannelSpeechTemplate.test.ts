@@ -3,7 +3,7 @@ import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './joinChanne
 describe('Speech Template Repository', () => {
 	it('should get joining template with its default value when no one updated it yet', () => {
 		const actual = getJoiningSpeechTemplate()
-		expect(actual).toEqual('{name} เข้ามาจ้า')
+		expect(actual).toEqual('{name}')
 	})
 
 	describe('set a new joining template', () => {

@@ -13,7 +13,6 @@ import {
 } from '@discordjs/voice'
 import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
 import { join } from 'path'
-import { type } from 'os'
 
 export enum SpeakerQueueType {
 	Left = 'left',
