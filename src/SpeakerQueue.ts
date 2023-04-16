@@ -3,16 +3,8 @@ import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import logger from 'npmlog'
 import discordTTS from 'discord-tts'
-import {
-	AudioPlayerStatus,
-	createAudioPlayer,
-	createAudioResource,
-	entersState,
-	joinVoiceChannel,
-	VoiceConnection,
-} from '@discordjs/voice'
+import { createAudioPlayer, createAudioResource, joinVoiceChannel, VoiceConnection } from '@discordjs/voice'
 import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
-import { join } from 'path'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -48,37 +40,11 @@ const speak = (voiceConnection: VoiceConnection, text: string) => {
 	}
 }
 
-const joiningSpeak = async (voiceConnection: VoiceConnection, text: string) => {
-	logger.info('speak()', `request tts resource: "${text}"`)
-
-	const music = '../assets/pim-hi-1.mp3'
-	const pimResource = createAudioResource(join(__dirname, music), { inlineVolume: true })
-	pimResource.volume.setVolume(0.5)
-	console.log(join(__dirname, music))
-	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
-
-	const audioPlayer = createAudioPlayer()
-	const subscription = voiceConnection.subscribe(audioPlayer)
-	const resources = [pimResource, resource]
-	logger.info('speak()', `Bot said "${text}"`)
-
-	for (const resource of resources) {
-		audioPlayer.play(resource)
-		await entersState(audioPlayer, AudioPlayerStatus.Idle, 5e3)
-	}
-
-	if (subscription) {
-		audioPlayer.stop()
-		setTimeout(() => subscription.unsubscribe(), 10_000)
-	}
-}
-
 const joinChannelAndSpeak = async (
 	guildId: string,
 	channelId: string,
 	voiceAdapterCreator: InternalDiscordGatewayAdapterCreator,
-	text: string,
-	type?: SpeakerQueueType
+	text: string
 ) => {
 	const voiceConnection = joinVoiceChannel({
 		guildId: guildId,
@@ -88,11 +54,7 @@ const joinChannelAndSpeak = async (
 		selfDeaf: false,
 	})
 
-	if (type === SpeakerQueueType.Join) {
-		joiningSpeak(voiceConnection, text)
-	} else {
-		speak(voiceConnection, text)
-	}
+	speak(voiceConnection, text)
 }
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
@@ -113,7 +75,7 @@ const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType)
 
 	switch (queue[0].type) {
 		case SpeakerQueueType.Join:
-			return `${speechForNames}`
+			return `${speechForNames} เข้ามาจ้า`
 		case SpeakerQueueType.Left:
 			return `${speechForNames} ออกไปแล้ว`
 		case SpeakerQueueType.Afk:
@@ -185,7 +147,7 @@ const consumeQueueWithDelay = () => {
 			const name = alias[payload.memberId] || payload.displayName
 			const text = getTextSpeechForSingleMember(name, type)
 
-			joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text, type)
+			joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
 		}
 	}, 1500)
 }
