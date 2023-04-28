@@ -71,7 +71,8 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 
 	const isSwitchChannel = prevState.channelId && newState.channelId && prevState.channelId !== newState.channelId
 	if (isSwitchChannel) {
-		// Do nothing
+		userLeftChannel(prevState)
+		userJoinChannel(newState)
 	}
 
 	const isUserMovedToAFK = prevState.channelId && newState.guild.afkChannelId === newState.channelId
