@@ -10,7 +10,7 @@ Let you know who joining or leaving your Discord's channel.
 
 ## Features
 
-- Speak joining or leaving user's name
+- Announce a person name who join or leave a channel including switching between channels
 - Set alias name instead of calling a person by their username
 
 ## Installation
