@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
     "start:prod": "node dist/index.js --enable-source-maps",
+    "update-command": "ts-node scripts/registerCommands.ts",
     "build": "tsc",
     "test": "jest",
     "typecheck": "tsc --noEmit",
