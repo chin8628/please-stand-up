@@ -60,6 +60,7 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 				const voiceConnection = getVoiceConnection(voiceChannel.guildId)
 
 				if (voiceConnection) {
+					voiceConnection.disconnect()
 					voiceConnection.destroy()
 					logger.info('bot state', 'leaved')
 
