@@ -10,12 +10,14 @@ export const handler = (prevState: VoiceState, newState: VoiceState): void => {
 		return
 	}
 
-	const isUserLeftAFK =
+	const isUserSwitchFromAFK =
 		prevState.channelId &&
 		newState.channelId &&
 		prevState.channelId !== newState.channelId &&
-		prevState.guild.afkChannelId === prevState.channelId
-	if (isUserLeftAFK) {
+		prevState.guild.afkChannelId === prevState.channelId &&
+		newState.guild.afkChannelId !== newState.channelId
+	if (isUserSwitchFromAFK) {
+		userJoinChannel(newState)
 		return
 	}
 

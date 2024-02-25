@@ -33,14 +33,14 @@ describe('handler', () => {
 		expect(userLeftChannel).not.toBeCalled()
 	})
 
-	it('should do nothing when user left AFK channel', () => {
+	it('should call userJoinChannel only when user switches a channel from AFK channel', () => {
 		const prevState = { ...buildDefaultVoiceState(), channelId: '1' } as unknown as VoiceState
 		const nextState = { ...buildDefaultVoiceState(), channelId: '2' } as unknown as VoiceState
 
 		handler(prevState, nextState)
 
 		expect(userMovedToAFKHandler).not.toBeCalled()
-		expect(userJoinChannel).not.toBeCalled()
+		expect(userJoinChannel).toBeCalledWith(nextState)
 		expect(userLeftChannel).not.toBeCalled()
 	})
 
