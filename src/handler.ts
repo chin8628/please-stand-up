@@ -28,13 +28,13 @@ export const handler = (prevState: VoiceState, newState: VoiceState): void => {
 		return
 	}
 
-	const isLeftChannel = !newState.channelId && !!prevState.channelId
+	const isLeftChannel = !newState.channelId && prevState.channelId
 	if (isLeftChannel) {
 		userLeftChannel(prevState)
 		return
 	}
 
-	const isJoinChannel = !prevState.channelId && !!newState.channelId
+	const isJoinChannel = !prevState.channelId && newState.channelId
 	if (isJoinChannel) {
 		userJoinChannel(newState)
 		return
