@@ -12,8 +12,9 @@ import {
 	VoiceConnection,
 	VoiceConnectionStatus,
 } from '@discordjs/voice'
-import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
+import { ApplicationCommandOptionWithChoicesAndAutocompleteMixin, InternalDiscordGatewayAdapterCreator } from 'discord.js'
 import { getVoiceConnection } from '@discordjs/voice'
+import { v4 as uuidv4 } from 'uuid'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -30,24 +31,28 @@ type QueueItemPayload = {
 }
 
 type QueueItem = {
+	id: string
 	type: SpeakerQueueType
 	payload: QueueItemPayload
 }
 
-let queue: QueueItem[] = []
+const queue: QueueItem[] = []
 
 const speak = async (voiceConnection: VoiceConnection, text: string) => {
 	logger.info('speak()', `request tts resource: "${text}"`)
 	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
 	const audioPlayer = createAudioPlayer()
 	const subscription = voiceConnection.subscribe(audioPlayer)
+	if (subscription) {
+		setTimeout(() => subscription.unsubscribe(), 10_000)
+	}
 
 	await entersState(audioPlayer, AudioPlayerStatus.Idle, 5_000)
 	audioPlayer.play(resource)
 	logger.info('speak()', `Bot said "${text}"`)
 
-	if (subscription) {
-		setTimeout(() => subscription.unsubscribe(), 10_000)
+	while (audioPlayer.state.status !== AudioPlayerStatus.Idle) {
+		await new Promise((resolve) => setTimeout(resolve, 500))
 	}
 }
 
@@ -75,6 +80,7 @@ const joinChannelAndSpeak = async (
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
 	queue.push({
+		id: uuidv4(),
 		type,
 		payload,
 	})
@@ -108,53 +114,18 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 	}
 }
 
-let timeoutInstance: NodeJS.Timeout
+const consumeQueueWithDelay = async () => {
+	logger.info('queue consuming', JSON.stringify(queue))
 
-const consumeQueueWithDelay = () => {
-	if (timeoutInstance) {
-		clearTimeout(timeoutInstance)
+	while (queue.length > 0) {
+		const { payload, type } = queue[0]
+
+		const alias = getAllAlias()
+		const name = alias[payload.memberId] || payload.displayName
+		const text = getTextSpeechForSingleMember(name, type)
+
+		await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
+
+		queue.shift()
 	}
-
-	timeoutInstance = setTimeout(() => {
-		logger.info('queue consuming', JSON.stringify(queue))
-
-		if (queue.length === 0) {
-			return
-		}
-
-		if (queue.length > 1) {
-			const firstQueueItem = queue[0]
-
-			const names = queue.map((queueItem) => {
-				const alias = getAllAlias()
-				const name = alias[queueItem.payload.memberId] || queueItem.payload.displayName
-
-				return name
-			})
-
-			const allDisplayNames = queue.map((item) => item.payload.displayName)
-			let text = ''
-			if (allDisplayNames.every((i) => allDisplayNames[0] === i)) {
-				text = `เข้าออกทำเหี้ยอะไร ${names[0]}`
-			} else {
-				text = getTextSpeechForMultipleMember(names, firstQueueItem.type)
-			}
-			joinChannelAndSpeak(
-				firstQueueItem.payload.guildId,
-				firstQueueItem.payload.channelId,
-				firstQueueItem.payload.adapterCreator,
-				text
-			)
-
-			queue = []
-		} else {
-			const { payload, type } = queue.shift()
-
-			const alias = getAllAlias()
-			const name = alias[payload.memberId] || payload.displayName
-			const text = getTextSpeechForSingleMember(name, type)
-
-			joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
-		}
-	}, 1500)
 }
