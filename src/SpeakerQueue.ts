@@ -1,20 +1,20 @@
-import { getAllAlias } from './repository/alias'
-import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
-import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
-import logger from 'npmlog'
-import discordTTS from 'discord-tts'
 import {
 	AudioPlayerStatus,
 	createAudioPlayer,
 	createAudioResource,
 	entersState,
+	getVoiceConnection,
 	joinVoiceChannel,
 	VoiceConnection,
 	VoiceConnectionStatus,
 } from '@discordjs/voice'
-import { ApplicationCommandOptionWithChoicesAndAutocompleteMixin, InternalDiscordGatewayAdapterCreator } from 'discord.js'
-import { getVoiceConnection } from '@discordjs/voice'
+import discordTTS from 'discord-tts'
+import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
+import logger from 'npmlog'
 import { v4 as uuidv4 } from 'uuid'
+import { getAllAlias } from './repository/alias'
+import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
+import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -36,7 +36,9 @@ type QueueItem = {
 	payload: QueueItemPayload
 }
 
-const queue: QueueItem[] = []
+// Queue is updated by multiple functions. I have concern that it will have race condition soon.
+// Need to refactor this to use a better queue service.
+let queue: QueueItem[] = []
 
 const speak = async (voiceConnection: VoiceConnection, text: string) => {
 	logger.info('speak()', `request tts resource: "${text}"`)
@@ -79,13 +81,15 @@ const joinChannelAndSpeak = async (
 }
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
-	queue.push({
+	const event = {
 		id: uuidv4(),
 		type,
 		payload,
-	})
+	}
+	queue.push(event)
+	logger.info('enqueue', JSON.stringify(event))
 
-	consumeQueueWithDelay()
+	if (!processing) consumeQueue()
 }
 
 const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
@@ -114,18 +118,52 @@ const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): str
 	}
 }
 
-const consumeQueueWithDelay = async () => {
-	logger.info('queue consuming', JSON.stringify(queue))
+const getSameTypeSameChannelQueue = (type: SpeakerQueueType, channelId: string): QueueItem[] => {
+	return queue.filter((item) => item.type === type && item.payload.channelId === channelId)
+}
+
+let processing = false
+
+const consumeQueue = async () => {
+	processing = true
+	for (let queueLength = 0; queueLength !== queue.length; queueLength = queue.length) {
+		console.log('queue length before', queue.length)
+		await new Promise((resolve) => setTimeout(resolve, 1000))
+		console.log('queue length after', queue.length)
+	}
 
 	while (queue.length > 0) {
-		const { payload, type } = queue[0]
+		const selectedEvents = getSameTypeSameChannelQueue(queue[0].type, queue[0].payload.channelId)
+		logger.info('queue consuming', JSON.stringify(selectedEvents))
 
-		const alias = getAllAlias()
-		const name = alias[payload.memberId] || payload.displayName
-		const text = getTextSpeechForSingleMember(name, type)
+		if (selectedEvents.length > 1) {
+			const names = selectedEvents.map((event) => {
+				const alias = getAllAlias()
+				return alias[event.payload.memberId] || event.payload.displayName
+			})
+			const text = getTextSpeechForMultipleMember(names, queue[0].type)
 
-		await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
+			await joinChannelAndSpeak(
+				queue[0].payload.guildId,
+				queue[0].payload.channelId,
+				queue[0].payload.adapterCreator,
+				text
+			)
+		}
 
-		queue.shift()
+		if (selectedEvents.length === 1) {
+			const { payload, type } = queue[0]
+
+			const alias = getAllAlias()
+			const name = alias[payload.memberId] || payload.displayName
+			const text = getTextSpeechForSingleMember(name, type)
+
+			await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
+		}
+
+		const selectedEventsId = selectedEvents.map((event) => event.id)
+		queue = queue.filter((item) => !selectedEventsId.includes(item.id))
 	}
+
+	processing = false
 }

@@ -4,12 +4,11 @@ import * as dotenv from 'dotenv'
 // Must be invoked before all statements
 dotenv.config()
 
-import { Client, Interaction, IntentsBitField, SlashCommandBuilder, VoiceChannel } from 'discord.js'
-import { slashCommandsConfig } from './slashCommands'
+import { Client, IntentsBitField, Interaction, SlashCommandBuilder } from 'discord.js'
 import logger from 'npmlog'
-import { isPleaseStandUp } from './helpers/isPleaseStandUp'
-import { getVoiceConnection } from '@discordjs/voice'
 import { handler } from './handler'
+import { isPleaseStandUp } from './helpers/isPleaseStandUp'
+import { slashCommandsConfig } from './slashCommands'
 
 let enabledSayMyName = true
 
@@ -48,24 +47,6 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
 	if (isNotChannelUpdateEvent) {
 		return
-	}
-
-	for (const channel of client.channels.cache.values()) {
-		if (channel.isVoiceBased()) {
-			const voiceChannel = channel as VoiceChannel
-
-			if (voiceChannel.members.has(client.user.id) && voiceChannel.members.size === 1) {
-				const voiceConnection = getVoiceConnection(voiceChannel.guildId)
-
-				if (voiceConnection) {
-					voiceConnection.disconnect()
-					voiceConnection.destroy()
-					logger.info('bot state', 'leaved')
-
-					return
-				}
-			}
-		}
 	}
 
 	handler(prevState, newState)
