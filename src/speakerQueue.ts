@@ -6,16 +6,15 @@ import {
 	getVoiceConnection,
 	joinVoiceChannel,
 	VoiceConnection,
-	VoiceConnectionStatus,
 } from '@discordjs/voice'
 import discordTTS from 'discord-tts'
 import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
 import logger from 'npmlog'
 import { v4 as uuidv4 } from 'uuid'
 import { getAllAlias } from './repository/alias'
+import { setChannelId } from './repository/botState'
 import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
-import { setChannelId } from './repository/botState'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
 
 export enum SpeakerQueueType {

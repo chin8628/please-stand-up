@@ -17,6 +17,6 @@ FROM node:20-slim AS runner
 WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./
 
-VOLUME data
+VOLUME /usr/app/data
 
 CMD ["node", "./dist/index.js", "--enable-source-maps"]
