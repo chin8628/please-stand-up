@@ -1,5 +1,5 @@
 import { VoiceState } from 'discord.js'
-import { queueSpeaker, SpeakerQueueType } from '../SpeakerQueue'
+import { queueSpeaker, SpeakerQueueType } from '../speakerQueue'
 import logger from 'npmlog'
 
 export const userMovedToAFKHandler = (prevState: VoiceState, newState: VoiceState) => {
