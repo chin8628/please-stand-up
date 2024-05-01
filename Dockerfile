@@ -11,7 +11,6 @@ RUN yarn install --immutable --immutable-cache --check-cache
 
 COPY . .
 RUN yarn build
-RUN rm -rf node_modules
 
 FROM node:20-slim AS runner
 
