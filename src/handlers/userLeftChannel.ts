@@ -7,8 +7,11 @@ export const userLeftChannel = (prevState: VoiceState) => {
 
 	// skip in limit member channel
 	if (prevState.channel.userLimit != 0) return
-	// skip when only one member in channel
-	if (prevState.channel.members.size === 1) return
+	// skip and disconnect when only one member in channel
+	if (prevState.channel.members.size === 1) {
+		prevState.client.destroy()
+		return
+	}
 
 	queueSpeaker(SpeakerQueueType.Left, {
 		guildId: prevState.guild.id,

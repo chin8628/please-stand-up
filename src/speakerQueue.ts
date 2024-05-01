@@ -127,9 +127,7 @@ let processing = false
 const consumeQueue = async () => {
 	processing = true
 	for (let queueLength = 0; queueLength !== queue.length; queueLength = queue.length) {
-		console.log('queue length before', queue.length)
-		await new Promise((resolve) => setTimeout(resolve, 1000))
-		console.log('queue length after', queue.length)
+		await new Promise((resolve) => setTimeout(resolve, 1500))
 	}
 
 	while (queue.length > 0) {
