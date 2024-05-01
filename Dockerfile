@@ -17,10 +17,6 @@ FROM node:20-slim AS runner
 WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./
 
-RUN mkdir /data
-RUN echo "{}" > /data/alias.json
-RUN chmod 777 /data/alias.json
-
-VOLUME /data
+VOLUME data
 
 CMD ["node", "./dist/index.js", "--enable-source-maps"]
