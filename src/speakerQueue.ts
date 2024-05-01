@@ -1,21 +1,11 @@
-import {
-	AudioPlayerStatus,
-	createAudioPlayer,
-	createAudioResource,
-	entersState,
-	getVoiceConnection,
-	joinVoiceChannel,
-	VoiceConnection,
-} from '@discordjs/voice'
-import discordTTS from 'discord-tts'
 import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
 import logger from 'npmlog'
 import { v4 as uuidv4 } from 'uuid'
 import { getAllAlias } from './repository/alias'
-import { setChannelId } from './repository/botState'
 import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
+import { joinChannelAndSpeak } from './botAction'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -40,44 +30,6 @@ type QueueItem = {
 // Queue is updated by multiple functions. I have concern that it will have race condition soon.
 // Need to refactor this to use a better queue service.
 let queue: QueueItem[] = []
-
-const speak = async (voiceConnection: VoiceConnection, text: string) => {
-	logger.info('speak()', `request tts resource: "${text}"`)
-	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
-	const audioPlayer = createAudioPlayer()
-	const subscription = voiceConnection.subscribe(audioPlayer)
-	if (subscription) {
-		setTimeout(() => subscription.unsubscribe(), 10_000)
-	}
-
-	await entersState(audioPlayer, AudioPlayerStatus.Idle, 5_000)
-	audioPlayer.play(resource)
-	logger.info('speak()', `Bot said "${text}"`)
-
-	while (audioPlayer.state.status !== AudioPlayerStatus.Idle) {
-		await new Promise((resolve) => setTimeout(resolve, 500))
-	}
-}
-
-const joinChannelAndSpeak = async (
-	guildId: string,
-	channelId: string,
-	voiceAdapterCreator: InternalDiscordGatewayAdapterCreator,
-	text: string
-) => {
-	let voiceConnection = getVoiceConnection(guildId)
-
-	voiceConnection = joinVoiceChannel({
-		guildId: guildId,
-		channelId: channelId,
-		adapterCreator: voiceAdapterCreator,
-		selfMute: false,
-		selfDeaf: false,
-	})
-
-	setChannelId(channelId)
-	await speak(voiceConnection, text)
-}
 
 export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
 	const event = {
@@ -121,6 +73,10 @@ const getSameTypeSameChannelQueue = (type: SpeakerQueueType, channelId: string):
 	return queue.filter((item) => item.type === type && item.payload.channelId === channelId)
 }
 
+const getSameUserSameChannelQueue = (memberId: string, channelId: string): QueueItem[] => {
+	return queue.filter((item) => item.payload.memberId === memberId && item.payload.channelId === channelId)
+}
+
 const consumeQueue = async () => {
 	setQueueState(QueueState.PROCESSING)
 	for (let queueLength = 0; queueLength !== queue.length; queueLength = queue.length) {
@@ -129,6 +85,27 @@ const consumeQueue = async () => {
 
 	logger.info('queue before consuming', JSON.stringify(queue))
 	while (queue.length > 0) {
+		const samePeopleSameChannelEvents = getSameUserSameChannelQueue(
+			queue[0].payload.memberId,
+			queue[0].payload.channelId
+		)
+		const samePeopleSameChannelEventIds = samePeopleSameChannelEvents.map((event) => event.id)
+		queue = queue.filter((item) => !samePeopleSameChannelEventIds.includes(item.id))
+		logger.info('consume queue', JSON.stringify(samePeopleSameChannelEvents))
+		if (samePeopleSameChannelEvents.length > 1) {
+			const name =
+				getAllAlias[samePeopleSameChannelEvents[0].payload.memberId] ||
+				samePeopleSameChannelEvents[0].payload.displayName
+			const text = `เข้าออกทำเหี้ยอะไร ${name}`
+
+			await joinChannelAndSpeak(
+				samePeopleSameChannelEvents[0].payload.guildId,
+				samePeopleSameChannelEvents[0].payload.channelId,
+				samePeopleSameChannelEvents[0].payload.adapterCreator,
+				text
+			)
+		}
+
 		const selectedEvents = getSameTypeSameChannelQueue(queue[0].type, queue[0].payload.channelId)
 		const selectedEventsId = selectedEvents.map((event) => event.id)
 		queue = queue.filter((item) => !selectedEventsId.includes(item.id))
