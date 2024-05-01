@@ -1,4 +1,4 @@
-FROM node:16-slim AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /usr/app
 
@@ -13,7 +13,7 @@ COPY . .
 RUN yarn build
 RUN rm -rf node_modules
 
-FROM node:16-slim AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./
