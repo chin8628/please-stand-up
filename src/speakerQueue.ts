@@ -124,7 +124,7 @@ const getSameTypeSameChannelQueue = (type: SpeakerQueueType, channelId: string):
 const consumeQueue = async () => {
 	setQueueState(QueueState.PROCESSING)
 	for (let queueLength = 0; queueLength !== queue.length; queueLength = queue.length) {
-		await new Promise((resolve) => setTimeout(resolve, 1500))
+		await new Promise((resolve) => setTimeout(resolve, 1000))
 	}
 
 	logger.info('queue before consuming', JSON.stringify(queue))
