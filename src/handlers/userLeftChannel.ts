@@ -1,17 +1,36 @@
+import { getVoiceConnection } from '@discordjs/voice'
 import { VoiceState } from 'discord.js'
-import { queueSpeaker, SpeakerQueueType } from '../speakerQueue'
 import logger from 'npmlog'
+import { getChannelId, setChannelId } from '../repository/botState'
+import { QueueState, setQueueState } from '../repository/queueState'
+import { SpeakerQueueType, queueSpeaker } from '../speakerQueue'
 
 export const userLeftChannel = (prevState: VoiceState) => {
-	logger.info('', prevState.member.displayName, 'lefted a channel')
+	logger.info(
+		'leave a channel',
+		JSON.stringify({
+			displayName: prevState.member.displayName,
+			channel: prevState.channel.name,
+			membersSize: prevState.channel.members.size,
+		})
+	)
 
-	// skip in limit member channel
-	if (prevState.channel.userLimit != 0) return
 	// skip and disconnect when only one member in channel
-	if (prevState.channel.members.size === 1) {
-		prevState.client.destroy()
+	if (prevState.channel.members.size === 0) return
+	// disconnect when only one member in channel with a bot
+	if (prevState.channel.members.size === 1 && getChannelId() === prevState.channelId) {
+		getVoiceConnection(prevState.guild.id).destroy()
+		logger.info('', 'Bot left the channel')
+
+		setChannelId(null)
+		setQueueState(QueueState.IDLE)
+
 		return
 	}
+	// skip in limit member channel
+	if (prevState.channel.userLimit != 0) return
+	// skip AFK
+	if (prevState.guild.afkChannelId === prevState.channelId) return
 
 	queueSpeaker(SpeakerQueueType.Left, {
 		guildId: prevState.guild.id,

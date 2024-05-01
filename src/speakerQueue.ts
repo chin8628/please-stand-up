@@ -15,6 +15,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { getAllAlias } from './repository/alias'
 import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
+import { setChannelId } from './repository/botState'
+import { getQueueState, QueueState, setQueueState } from './repository/queueState'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -65,9 +67,6 @@ const joinChannelAndSpeak = async (
 	text: string
 ) => {
 	let voiceConnection = getVoiceConnection(guildId)
-	if (voiceConnection) {
-		await entersState(voiceConnection, VoiceConnectionStatus.Ready, 30_000)
-	}
 
 	voiceConnection = joinVoiceChannel({
 		guildId: guildId,
@@ -77,6 +76,7 @@ const joinChannelAndSpeak = async (
 		selfDeaf: false,
 	})
 
+	setChannelId(channelId)
 	await speak(voiceConnection, text)
 }
 
@@ -89,7 +89,7 @@ export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) 
 	queue.push(event)
 	logger.info('enqueue', JSON.stringify(event))
 
-	if (!processing) consumeQueue()
+	if (getQueueState() === QueueState.IDLE) consumeQueue()
 }
 
 const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
@@ -122,35 +122,36 @@ const getSameTypeSameChannelQueue = (type: SpeakerQueueType, channelId: string):
 	return queue.filter((item) => item.type === type && item.payload.channelId === channelId)
 }
 
-let processing = false
-
 const consumeQueue = async () => {
-	processing = true
+	setQueueState(QueueState.PROCESSING)
 	for (let queueLength = 0; queueLength !== queue.length; queueLength = queue.length) {
 		await new Promise((resolve) => setTimeout(resolve, 1500))
 	}
 
+	logger.info('queue before consuming', JSON.stringify(queue))
 	while (queue.length > 0) {
 		const selectedEvents = getSameTypeSameChannelQueue(queue[0].type, queue[0].payload.channelId)
-		logger.info('queue consuming', JSON.stringify(selectedEvents))
+		const selectedEventsId = selectedEvents.map((event) => event.id)
+		queue = queue.filter((item) => !selectedEventsId.includes(item.id))
+		logger.info('consume queue', JSON.stringify(selectedEvents))
 
 		if (selectedEvents.length > 1) {
 			const names = selectedEvents.map((event) => {
 				const alias = getAllAlias()
 				return alias[event.payload.memberId] || event.payload.displayName
 			})
-			const text = getTextSpeechForMultipleMember(names, queue[0].type)
+			const text = getTextSpeechForMultipleMember(names, selectedEvents[0].type)
 
 			await joinChannelAndSpeak(
-				queue[0].payload.guildId,
-				queue[0].payload.channelId,
-				queue[0].payload.adapterCreator,
+				selectedEvents[0].payload.guildId,
+				selectedEvents[0].payload.channelId,
+				selectedEvents[0].payload.adapterCreator,
 				text
 			)
 		}
 
 		if (selectedEvents.length === 1) {
-			const { payload, type } = queue[0]
+			const { payload, type } = selectedEvents[0]
 
 			const alias = getAllAlias()
 			const name = alias[payload.memberId] || payload.displayName
@@ -158,10 +159,8 @@ const consumeQueue = async () => {
 
 			await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
 		}
-
-		const selectedEventsId = selectedEvents.map((event) => event.id)
-		queue = queue.filter((item) => !selectedEventsId.includes(item.id))
 	}
 
-	processing = false
+	logger.info('queue after consuming', JSON.stringify(queue))
+	setQueueState(QueueState.IDLE)
 }
