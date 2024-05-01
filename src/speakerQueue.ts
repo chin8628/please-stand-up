@@ -85,14 +85,17 @@ const consumeQueue = async () => {
 
 	logger.info('queue before consuming', JSON.stringify(queue))
 	while (queue.length > 0) {
+		const firstEvent = queue[0]
+
 		const samePeopleSameChannelEvents = getSameUserSameChannelQueue(
-			queue[0].payload.memberId,
-			queue[0].payload.channelId
+			firstEvent.payload.memberId,
+			firstEvent.payload.channelId
 		)
-		const samePeopleSameChannelEventIds = samePeopleSameChannelEvents.map((event) => event.id)
-		queue = queue.filter((item) => !samePeopleSameChannelEventIds.includes(item.id))
-		logger.info('consume queue', JSON.stringify(samePeopleSameChannelEvents))
 		if (samePeopleSameChannelEvents.length > 1) {
+			const samePeopleSameChannelEventIds = samePeopleSameChannelEvents.map((event) => event.id)
+			queue = queue.filter((item) => !samePeopleSameChannelEventIds.includes(item.id))
+			logger.info('consume queue', JSON.stringify(samePeopleSameChannelEvents))
+
 			const name =
 				getAllAlias[samePeopleSameChannelEvents[0].payload.memberId] ||
 				samePeopleSameChannelEvents[0].payload.displayName
@@ -104,9 +107,11 @@ const consumeQueue = async () => {
 				samePeopleSameChannelEvents[0].payload.adapterCreator,
 				text
 			)
+
+			continue
 		}
 
-		const selectedEvents = getSameTypeSameChannelQueue(queue[0].type, queue[0].payload.channelId)
+		const selectedEvents = getSameTypeSameChannelQueue(firstEvent.type, firstEvent.payload.channelId)
 		const selectedEventsId = selectedEvents.map((event) => event.id)
 		queue = queue.filter((item) => !selectedEventsId.includes(item.id))
 		logger.info('consume queue', JSON.stringify(selectedEvents))
@@ -124,6 +129,8 @@ const consumeQueue = async () => {
 				selectedEvents[0].payload.adapterCreator,
 				text
 			)
+
+			continue
 		}
 
 		if (selectedEvents.length === 1) {
@@ -134,6 +141,8 @@ const consumeQueue = async () => {
 			const text = getTextSpeechForSingleMember(name, type)
 
 			await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
+
+			continue
 		}
 	}
 
