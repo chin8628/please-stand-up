@@ -46,7 +46,7 @@ export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) 
 const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
 	const speechForNames = names.filter((elem, pos) => names.indexOf(elem) == pos).join(' และ ')
 
-	switch (queue[0].type) {
+	switch (type) {
 		case SpeakerQueueType.Join:
 			return `${speechForNames} เข้ามาจ้า`
 		case SpeakerQueueType.Left:
