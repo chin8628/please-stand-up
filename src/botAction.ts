@@ -2,6 +2,7 @@ import {
 	AudioPlayerStatus,
 	createAudioPlayer,
 	createAudioResource,
+	DiscordGatewayAdapterCreator,
 	entersState,
 	getVoiceConnection,
 	joinVoiceChannel,
@@ -10,7 +11,6 @@ import {
 import discordTTS from 'discord-tts'
 import logger from 'npmlog'
 import { setChannelId } from './repository/botState'
-import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
 
 const speak = async (voiceConnection: VoiceConnection, text: string) => {
 	logger.info('speak()', `request tts resource: "${text}"`)
@@ -33,7 +33,7 @@ const speak = async (voiceConnection: VoiceConnection, text: string) => {
 export const joinChannelAndSpeak = async (
 	guildId: string,
 	channelId: string,
-	voiceAdapterCreator: InternalDiscordGatewayAdapterCreator,
+	voiceAdapterCreator: DiscordGatewayAdapterCreator,
 	text: string
 ) => {
 	let voiceConnection = getVoiceConnection(guildId)

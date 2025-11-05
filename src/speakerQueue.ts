@@ -1,4 +1,3 @@
-import { InternalDiscordGatewayAdapterCreator } from 'discord.js'
 import logger from 'npmlog'
 import { v4 as uuidv4 } from 'uuid'
 import { getAllAlias } from './repository/alias'
@@ -6,6 +5,7 @@ import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
 import { joinChannelAndSpeak } from './botAction'
+import { DiscordGatewayAdapterCreator } from '@discordjs/voice'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -18,7 +18,7 @@ type QueueItemPayload = {
 	channelId: string
 	memberId: string
 	displayName: string
-	adapterCreator: InternalDiscordGatewayAdapterCreator
+	adapterCreator: DiscordGatewayAdapterCreator
 }
 
 type QueueItem = {

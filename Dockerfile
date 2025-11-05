@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM lts/jod AS builder
 
 WORKDIR /usr/app
 
@@ -12,7 +12,7 @@ RUN yarn install --immutable --immutable-cache --check-cache
 COPY . .
 RUN yarn build
 
-FROM node:20-slim AS runner
+FROM lts/jod AS runner
 
 WORKDIR /usr/app
 COPY --from=builder /usr/app/ ./

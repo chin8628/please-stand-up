@@ -31,12 +31,13 @@
     "jest": "^29.4.1",
     "prettier": "2.5.1",
     "ts-node-dev": "^1.1.8",
-    "typescript": "^4.6.2"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
-    "@discordjs/voice": "^0.18.0",
+    "@discordjs/voice": "^0.19.0",
+    "@snazzah/davey": "^0.1.7",
     "discord-tts": "^1.2.2",
-    "discord.js": "^14.8.0",
+    "discord.js": "^14.23.2",
     "dotenv": "^16.0.0",
     "ffmpeg-static": "^4.4.1",
     "google-tts-api": "^2.0.2",
