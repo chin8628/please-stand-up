@@ -86,6 +86,7 @@ const consumeQueue = async () => {
 
 		logger.info('queue before consuming', JSON.stringify(queue))
 		while (queue.length > 0) {
+			logger.info('queue during consuming', JSON.stringify(queue))
 			const firstEvent = queue[0]
 
 			const samePeopleSameChannelEvents = getSameUserSameChannelQueue(
