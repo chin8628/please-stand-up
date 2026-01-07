@@ -17,15 +17,25 @@ export const userLeftChannel = (prevState: VoiceState) => {
 
 	// skip and disconnect when only one member in channel
 	if (prevState.channel.members.size === 0) return
-	// disconnect when only one member in channel with a bot
-	if (prevState.channel.members.size === 1 && getChannelId() === prevState.channelId) {
-		setTimeout(() => {
-			getVoiceConnection(prevState.guild.id).destroy()
-			logger.info('', 'Bot left the channel')
 
-			setChannelId(null)
-			setQueueState(QueueState.IDLE)
-		}, 5000)
+	// disconnect when only one member in channel with a bot
+	logger.info(
+		'check to leave channel',
+		JSON.stringify({
+			botInChannel: getVoiceConnection(prevState.guild.id) ? true : false,
+			channelId: getChannelId(),
+			prevState: {
+				memberSize: prevState.channel.members.size,
+				channelId: prevState.channelId,
+			},
+		})
+	)
+	if (prevState.channel.members.size === 1 && getChannelId() === prevState.channelId) {
+		getVoiceConnection(prevState.guild.id).destroy()
+		logger.info('', 'Bot left the channel')
+
+		setChannelId(null)
+		setQueueState(QueueState.IDLE)
 
 		return
 	}
