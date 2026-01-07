@@ -1,11 +1,14 @@
 import logger from 'npmlog'
 import { v4 as uuidv4 } from 'uuid'
+import { Mutex } from 'async-mutex'
 import { getAllAlias } from './repository/alias'
 import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
 import { joinChannelAndSpeak } from './botAction'
 import { DiscordGatewayAdapterCreator } from '@discordjs/voice'
+import { QUEUE_DEBOUNCE_MS, QUEUE_MAX_SIZE } from './repository/constants'
+import { NAME_CONNECTOR, SPEECH_TEMPLATES } from './repository/speechTemplates'
 
 export enum SpeakerQueueType {
 	Left = 'left',
@@ -27,45 +30,83 @@ type QueueItem = {
 	payload: QueueItemPayload
 }
 
-// Queue is updated by multiple functions. I have concern that it will have race condition soon.
-// Need to refactor this to use a better queue service.
+// Mutex to prevent race conditions when accessing the queue
+const queueMutex = new Mutex()
 let queue: QueueItem[] = []
 
-export const queueSpeaker = (type: SpeakerQueueType, payload: QueueItemPayload) => {
-	const event = {
-		id: uuidv4(),
-		type,
-		payload,
-	}
-	queue.push(event)
-	logger.info('enqueue', JSON.stringify(event))
+/**
+ * Resolves user display name from alias or falls back to the provided name
+ */
+const resolveDisplayName = (memberId: string, fallbackName: string): string => {
+	const aliases = getAllAlias()
+	return aliases[memberId] || fallbackName
+}
 
-	if (getQueueState() === QueueState.IDLE) consumeQueue()
+/**
+ * Waits for the queue to stabilize (no new events for QUEUE_DEBOUNCE_MS)
+ * This batches multiple rapid events together for a better user experience
+ */
+const waitForQueueToStabilize = async (): Promise<void> => {
+	let previousLength = -1
+	while (previousLength !== queue.length) {
+		previousLength = queue.length
+		logger.verbose('waitForQueueToStabilize', `Queue length: ${queue.length}, waiting ${QUEUE_DEBOUNCE_MS}ms for more events...`)
+		await new Promise((resolve) => setTimeout(resolve, QUEUE_DEBOUNCE_MS))
+	}
+	logger.info('waitForQueueToStabilize', `Queue stabilized with ${queue.length} event(s)`)
+}
+
+export const queueSpeaker = async (type: SpeakerQueueType, payload: QueueItemPayload): Promise<void> => {
+	await queueMutex.runExclusive(() => {
+		// Protect against queue overflow
+		if (queue.length >= QUEUE_MAX_SIZE) {
+			logger.warn('queueSpeaker', `Queue is full (max: ${QUEUE_MAX_SIZE}), dropping oldest event`)
+			const droppedEvent = queue.shift()
+			logger.warn('queueSpeaker', `Dropped event: ${JSON.stringify(droppedEvent)}`)
+		}
+
+		const event = {
+			id: uuidv4(),
+			type,
+			payload,
+		}
+		queue.push(event)
+		logger.info('queueSpeaker', `Enqueued event: ${JSON.stringify(event)}`)
+	})
+
+	if (getQueueState() === QueueState.IDLE) {
+		consumeQueue()
+	}
 }
 
 const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
-	const speechForNames = names.filter((elem, pos) => names.indexOf(elem) == pos).join(' และ ')
+	const uniqueNames = names.filter((elem, pos) => names.indexOf(elem) === pos)
+	const speechForNames = uniqueNames.join(NAME_CONNECTOR)
 
 	switch (type) {
 		case SpeakerQueueType.Join:
-			return `${speechForNames} เข้ามาจ้า`
+			return SPEECH_TEMPLATES.multipleJoin(speechForNames)
 		case SpeakerQueueType.Left:
-			return `${speechForNames} ออกไปแล้ว`
+			return SPEECH_TEMPLATES.multipleLeft(speechForNames)
 		case SpeakerQueueType.Afk:
-			return `${speechForNames} afk จ้า`
+			return SPEECH_TEMPLATES.multipleAfk(speechForNames)
 		default:
-			logger.error('', `tts event type isn't handled properly. type is [${type}].`)
-			throw new Error(`tts event type isn't handled properly. type is [${type}]`)
+			logger.error('getTextSpeechForMultipleMember', `Unhandled TTS event type: [${type}]`)
+			throw new Error(`TTS event type isn't handled properly. type is [${type}]`)
 	}
 }
 
 const getTextSpeechForSingleMember = (name: string, type: SpeakerQueueType): string => {
-	if (type === SpeakerQueueType.Join) {
-		return getJoiningSpeechTemplate().replace('{name}', name)
-	} else if (type === SpeakerQueueType.Left) {
-		return getLeavingSpeechTemplate().replace('{name}', name)
-	} else if (type === SpeakerQueueType.Afk) {
-		return '{name} afk จ้า'.replace('{name}', name)
+	switch (type) {
+		case SpeakerQueueType.Join:
+			return getJoiningSpeechTemplate().replace('{name}', name)
+		case SpeakerQueueType.Left:
+			return getLeavingSpeechTemplate().replace('{name}', name)
+		case SpeakerQueueType.Afk:
+			return SPEECH_TEMPLATES.singleAfk(name)
+		default:
+			logger.error('getTextSpeechForSingleMember', `Unhandled TTS event type: [${type}]`)
+			throw new Error(`Unhandled type: ${type}`)
 	}
 }
 
@@ -80,15 +121,17 @@ const getSameUserSameChannelQueue = (memberId: string, channelId: string): Queue
 const consumeQueue = async () => {
 	try {
 		setQueueState(QueueState.PROCESSING)
-		for (let queueLength = 0; queueLength !== queue.length; queueLength = queue.length) {
-			await new Promise((resolve) => setTimeout(resolve, 1000))
-		}
+		logger.info('consumeQueue', 'Started processing queue')
 
-		logger.info('queue before consuming', JSON.stringify(queue))
+		// Wait for queue to stabilize before processing
+		await waitForQueueToStabilize()
+
+		logger.info('consumeQueue', `Queue before consuming: ${JSON.stringify(queue)}`)
 		while (queue.length > 0) {
-			logger.info('queue during consuming', JSON.stringify(queue))
+			logger.verbose('consumeQueue', `Processing queue (${queue.length} event(s) remaining)`)
 			const firstEvent = queue[0]
 
+			// Handle frequent join/leave by same user in same channel
 			const samePeopleSameChannelEvents = getSameUserSameChannelQueue(
 				firstEvent.payload.memberId,
 				firstEvent.payload.channelId
@@ -96,12 +139,13 @@ const consumeQueue = async () => {
 			if (samePeopleSameChannelEvents.length > 1) {
 				const samePeopleSameChannelEventIds = samePeopleSameChannelEvents.map((event) => event.id)
 				queue = queue.filter((item) => !samePeopleSameChannelEventIds.includes(item.id))
-				logger.info('consume queue', JSON.stringify(samePeopleSameChannelEvents))
+				logger.info('consumeQueue', `Batched ${samePeopleSameChannelEvents.length} events for frequent join/leave user`)
 
-				const name =
-					getAllAlias[samePeopleSameChannelEvents[0].payload.memberId] ||
+				const name = resolveDisplayName(
+					samePeopleSameChannelEvents[0].payload.memberId,
 					samePeopleSameChannelEvents[0].payload.displayName
-				const text = `เข้าออกทำเหี้ยอะไร ${name}`
+				)
+				const text = SPEECH_TEMPLATES.frequentJoinLeave(name)
 
 				await joinChannelAndSpeak(
 					samePeopleSameChannelEvents[0].payload.guildId,
@@ -113,16 +157,16 @@ const consumeQueue = async () => {
 				continue
 			}
 
+			// Handle multiple users with same event type in same channel
 			const selectedEvents = getSameTypeSameChannelQueue(firstEvent.type, firstEvent.payload.channelId)
 			const selectedEventsId = selectedEvents.map((event) => event.id)
 			queue = queue.filter((item) => !selectedEventsId.includes(item.id))
-			logger.info('consume queue', JSON.stringify(selectedEvents))
 
 			if (selectedEvents.length > 1) {
-				const names = selectedEvents.map((event) => {
-					const alias = getAllAlias()
-					return alias[event.payload.memberId] || event.payload.displayName
-				})
+				logger.info('consumeQueue', `Batched ${selectedEvents.length} events of type "${firstEvent.type}"`)
+				const names = selectedEvents.map((event) =>
+					resolveDisplayName(event.payload.memberId, event.payload.displayName)
+				)
 				const text = getTextSpeechForMultipleMember(names, selectedEvents[0].type)
 
 				await joinChannelAndSpeak(
@@ -135,23 +179,24 @@ const consumeQueue = async () => {
 				continue
 			}
 
+			// Handle single user event
 			if (selectedEvents.length === 1) {
 				const { payload, type } = selectedEvents[0]
-
-				const alias = getAllAlias()
-				const name = alias[payload.memberId] || payload.displayName
+				const name = resolveDisplayName(payload.memberId, payload.displayName)
 				const text = getTextSpeechForSingleMember(name, type)
 
+				logger.info('consumeQueue', `Processing single event: type="${type}", name="${name}"`)
 				await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
 
 				continue
 			}
 		}
 
-		logger.info('queue after consuming', JSON.stringify(queue))
+		logger.info('consumeQueue', 'Queue processing completed')
 	} catch (error) {
-		logger.error('consumeQueue()', 'Error occurred while consuming queue:', error)
+		logger.error('consumeQueue', `Error occurred while consuming queue: ${error}`)
 	} finally {
 		setQueueState(QueueState.IDLE)
+		logger.verbose('consumeQueue', 'Queue state set to IDLE')
 	}
 }
