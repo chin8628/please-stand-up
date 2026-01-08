@@ -1,8 +1,6 @@
-import { getVoiceConnection } from '@discordjs/voice'
 import { VoiceState } from 'discord.js'
 import logger from 'npmlog'
-import { getChannelId, setChannelId } from '../repository/botState'
-import { QueueState, setQueueState } from '../repository/queueState'
+import { disconnectBotIfAlone } from '../helpers/disconnectBotIfAlone'
 import { SpeakerQueueType, queueSpeaker } from '../speakerQueue'
 
 export const userLeftChannel = (prevState: VoiceState) => {
@@ -15,30 +13,11 @@ export const userLeftChannel = (prevState: VoiceState) => {
 		})
 	)
 
-	// skip and disconnect when only one member in channel
+	// skip when channel is empty
 	if (prevState.channel.members.size === 0) return
 
-	// disconnect when only one member in channel with a bot
-	logger.info(
-		'check to leave channel',
-		JSON.stringify({
-			botInChannel: getVoiceConnection(prevState.guild.id) ? true : false,
-			channelId: getChannelId(),
-			prevState: {
-				memberSize: prevState.channel.members.size,
-				channelId: prevState.channelId,
-			},
-		})
-	)
-	if (prevState.channel.members.size === 1 && getChannelId() === prevState.channelId) {
-		getVoiceConnection(prevState.guild.id).destroy()
-		logger.info('', 'Bot left the channel')
-
-		setChannelId(null)
-		setQueueState(QueueState.IDLE)
-
-		return
-	}
+	// disconnect when only the bot remains in channel
+	if (disconnectBotIfAlone(prevState)) return
 	// skip in limit member channel
 	if (prevState.channel.userLimit != 0) return
 	// skip AFK
