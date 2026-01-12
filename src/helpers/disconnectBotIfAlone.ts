@@ -2,13 +2,14 @@ import { getVoiceConnection } from '@discordjs/voice'
 import { VoiceState } from 'discord.js'
 import logger from 'npmlog'
 import { getChannelId, setChannelId } from '../repository/botState'
-import { QueueState, setQueueState } from '../repository/queueState'
 
 /**
- * Disconnects the bot if it's the only member left in the channel.
- * @returns true if the bot was disconnected, false otherwise
+ * Checks if the bot should disconnect because it's the only member left in the channel.
+ * Instead of disconnecting immediately, this now queues a disconnect event to avoid
+ * race conditions with the speaker queue processor.
+ * @returns true if a disconnect event should be queued, false otherwise
  */
-export const disconnectBotIfAlone = (prevState: VoiceState): boolean => {
+export const shouldBotDisconnect = (prevState: VoiceState): boolean => {
 	logger.info(
 		'check to leave channel',
 		JSON.stringify({
@@ -21,15 +22,21 @@ export const disconnectBotIfAlone = (prevState: VoiceState): boolean => {
 		})
 	)
 
-	if (prevState.channel.members.size === 1 && getChannelId() === prevState.channelId) {
-		getVoiceConnection(prevState.guild.id)?.destroy()
-		logger.info('', 'Bot left the channel')
+	// Bot should disconnect if it's the only one left and it's in the same channel
+	return prevState.channel.members.size === 1 && getChannelId() === prevState.channelId
+}
 
+/**
+ * Actually disconnects the bot from the voice channel.
+ * This should only be called from the queue processor.
+ */
+export const disconnectBot = (guildId: string): void => {
+	const connection = getVoiceConnection(guildId)
+	if (connection) {
+		connection.destroy()
+		logger.info('disconnectBot', 'Bot left the channel')
 		setChannelId(null)
-		setQueueState(QueueState.IDLE)
-
-		return true
+	} else {
+		logger.info('disconnectBot', 'No voice connection to destroy')
 	}
-
-	return false
 }

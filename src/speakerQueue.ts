@@ -6,6 +6,7 @@ import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
 import { joinChannelAndSpeak } from './botAction'
+import { disconnectBot } from './helpers/disconnectBotIfAlone'
 import { DiscordGatewayAdapterCreator } from '@discordjs/voice'
 import { QUEUE_DEBOUNCE_MS, QUEUE_MAX_SIZE } from './repository/constants'
 import { NAME_CONNECTOR, SPEECH_TEMPLATES } from './repository/speechTemplates'
@@ -14,6 +15,7 @@ export enum SpeakerQueueType {
 	Left = 'left',
 	Join = 'join',
 	Afk = 'afk',
+	Disconnect = 'disconnect',
 }
 
 type QueueItemPayload = {
@@ -131,11 +133,31 @@ const consumeQueue = async () => {
 			logger.verbose('consumeQueue', `Processing queue (${queue.length} event(s) remaining)`)
 			const firstEvent = queue[0]
 
-			// Handle frequent join/leave by same user in same channel
+			// Handle disconnect events - process immediately and clear remaining events for this channel
+			if (firstEvent.type === SpeakerQueueType.Disconnect) {
+				const channelId = firstEvent.payload.channelId
+				const guildId = firstEvent.payload.guildId
+
+				// Remove all events for this channel (including the disconnect event itself)
+				const eventsToRemove = queue.filter((item) => item.payload.channelId === channelId)
+				queue = queue.filter((item) => item.payload.channelId !== channelId)
+
+				logger.info(
+					'consumeQueue',
+					`Processing disconnect event, removing ${eventsToRemove.length} event(s) for channel ${channelId}`
+				)
+
+				// Actually disconnect the bot
+				disconnectBot(guildId)
+
+				continue
+			}
+
+			// Handle frequent join/leave by same user in same channel (skip disconnect events)
 			const samePeopleSameChannelEvents = getSameUserSameChannelQueue(
 				firstEvent.payload.memberId,
 				firstEvent.payload.channelId
-			)
+			).filter((item) => item.type !== SpeakerQueueType.Disconnect)
 			if (samePeopleSameChannelEvents.length > 1) {
 				const samePeopleSameChannelEventIds = samePeopleSameChannelEvents.map((event) => event.id)
 				queue = queue.filter((item) => !samePeopleSameChannelEventIds.includes(item.id))
