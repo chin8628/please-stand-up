@@ -81,6 +81,15 @@ export const queueSpeaker = async (type: SpeakerQueueType, payload: QueueItemPay
 	}
 }
 
+export const clearQueue = async (): Promise<number> => {
+	return await queueMutex.runExclusive(() => {
+		const queueLength = queue.length
+		queue = []
+		logger.info('clearQueue', `Queue cleared. ${queueLength} event(s) removed`)
+		return queueLength
+	})
+}
+
 const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
 	const uniqueNames = names.filter((elem, pos) => names.indexOf(elem) === pos)
 	const speechForNames = uniqueNames.join(NAME_CONNECTOR)
