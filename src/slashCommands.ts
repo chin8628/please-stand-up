@@ -104,15 +104,6 @@ export const slashCommandsConfig = {
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
-			const target = interaction.options.getString('target')
-			if (target !== 'queue') {
-				await interaction.reply({
-					content: 'Only queue reset is supported right now.',
-					ephemeral: true,
-				})
-				return
-			}
-
 			const removedCount = await clearQueue()
 			await interaction.reply({
 				content: `Queue reset completed. Removed ${removedCount} queued event(s).`,
