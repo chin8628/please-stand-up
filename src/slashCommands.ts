@@ -4,6 +4,7 @@ import { saveAlias } from './repository/alias'
 import { MAX_SPEECH_TEMPLATE_LETTERS } from './repository/constants'
 import { setJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { setLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
+import { clearQueue } from './speakerQueue'
 
 export const slashCommandsConfig = {
 	set_join_template: {
@@ -89,6 +90,25 @@ export const slashCommandsConfig = {
 		execute(interaction: ChatInputCommandInteraction) {
 			const voiceConnection = getVoiceConnection(interaction.guild.id)
 			voiceConnection.destroy()
+		},
+	},
+	reset: {
+		data: new SlashCommandBuilder()
+			.setName('reset')
+			.setDescription('Reset service queue')
+			.addStringOption((option) =>
+				option
+					.setName('target')
+					.setDescription('What should be reset')
+					.addChoices({ name: 'queue', value: 'queue' })
+					.setRequired(true)
+			),
+		async execute(interaction: ChatInputCommandInteraction) {
+			const removedCount = await clearQueue()
+			await interaction.reply({
+				content: `Queue reset completed. Removed ${removedCount} queued event(s).`,
+				ephemeral: true,
+			})
 		},
 	},
 }
