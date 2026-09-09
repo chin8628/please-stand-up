@@ -1,17 +1,7 @@
-import * as fs from 'fs'
+import { getAliases, saveAlias as persistAlias } from './settings'
 
-const ALIASES_FILE_PATH = './data/alias.json'
-
-export const getAllAlias = (): Record<string, string> => {
-	const aliasesFile = fs.readFileSync(ALIASES_FILE_PATH, { encoding: 'utf8', flag: 'r+' })
-	const aliases = JSON.parse(aliasesFile)
-
-	return aliases
-}
+export const getAllAlias = (): Record<string, string> => getAliases()
 
 export const saveAlias = (user: string, newAlias: string): void => {
-	const aliases = getAllAlias()
-	aliases[user] = newAlias
-
-	fs.writeFileSync(ALIASES_FILE_PATH, JSON.stringify(aliases))
+	persistAlias(user, newAlias)
 }

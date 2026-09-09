@@ -1,4 +1,10 @@
 import { getLeavingSpeechTemplate, setLeavingSpeechTemplate } from './leaveChannelSpeechTemplate'
+import { setLeaveTemplate } from './settings'
+
+jest.mock('./settings', () => ({
+	getLeaveTemplate: jest.fn(() => '{name} ออกไปแล้วจ้า'),
+	setLeaveTemplate: jest.fn(),
+}))
 
 describe('Leaving Channel Speech Template Repository', () => {
 	it('should get leaving speech template with its default value when no one updated it yet', () => {
@@ -10,8 +16,7 @@ describe('Leaving Channel Speech Template Repository', () => {
 		it('should set it correctly', () => {
 			setLeavingSpeechTemplate('{name} left the channel')
 
-			const actual = getLeavingSpeechTemplate()
-			expect(actual).toEqual('{name} left the channel')
+			expect(setLeaveTemplate).toHaveBeenCalledWith('{name} left the channel')
 		})
 
 		describe('should throw an error', () => {
