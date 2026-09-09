@@ -6,9 +6,14 @@ dotenv.config()
 
 import { Client, IntentsBitField, Interaction } from 'discord.js'
 import logger from 'npmlog'
+import { isSpeaking, stopSpeaking } from './botAction'
 import { commandsConfig } from './commands'
 import { handler } from './handler'
+import { disconnectBot } from './helpers/disconnectBotIfAlone'
 import { isPleaseStandUp } from './helpers/isPleaseStandUp'
+import { createShutdownHandler } from './shutdown'
+
+let isAcceptingVoiceEvents = true
 
 const client = new Client({
 	intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.GuildMessages, IntentsBitField.Flags.GuildVoiceStates],
@@ -20,6 +25,7 @@ client.on('ready', () => {
 })
 
 client.on('voiceStateUpdate', async (prevState, newState) => {
+	if (!isAcceptingVoiceEvents) return
 	if (isPleaseStandUp(client, prevState) || isPleaseStandUp(client, newState)) return
 
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
@@ -50,3 +56,23 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 		}
 	}
 })
+
+const shutdown = createShutdownHandler({
+	isSpeaking,
+	stopSpeaking,
+	disconnect: () => {
+		for (const guild of client.guilds.cache.values()) {
+			disconnectBot(guild.id)
+		}
+	},
+	close: () => client.destroy(),
+})
+
+const handleSignal = (signal: string) => {
+	isAcceptingVoiceEvents = false
+	logger.info('shutdown', `Received ${signal}; shutting down.`)
+	void shutdown()
+}
+
+process.once('SIGINT', () => handleSignal('SIGINT'))
+process.once('SIGTERM', () => handleSignal('SIGTERM'))
