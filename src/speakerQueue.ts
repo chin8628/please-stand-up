@@ -18,7 +18,7 @@ export enum SpeakerQueueType {
 	Disconnect = 'disconnect',
 }
 
-type QueueItemPayload = {
+export type QueueItemPayload = {
 	guildId: string
 	channelId: string
 	memberId: string
@@ -26,7 +26,7 @@ type QueueItemPayload = {
 	adapterCreator: DiscordGatewayAdapterCreator
 }
 
-type QueueItem = {
+export type QueueItem = {
 	id: string
 	type: SpeakerQueueType
 	payload: QueueItemPayload
@@ -125,8 +125,33 @@ const getSameTypeSameChannelQueue = (type: SpeakerQueueType, channelId: string):
 	return queue.filter((item) => item.type === type && item.payload.channelId === channelId)
 }
 
-const getSameUserSameChannelQueue = (memberId: string, channelId: string): QueueItem[] => {
-	return queue.filter((item) => item.payload.memberId === memberId && item.payload.channelId === channelId)
+export const reduceStableEvents = (events: QueueItem[]): QueueItem[] => {
+	const stableEvents = new Map<string, { event: QueueItem; types: Set<SpeakerQueueType> }>()
+	const disconnectEvents: QueueItem[] = []
+
+	for (const event of events) {
+		if (event.type === SpeakerQueueType.Disconnect) {
+			disconnectEvents.push(event)
+			continue
+		}
+
+		const key = `${event.payload.guildId}:${event.payload.channelId}:${event.payload.memberId}`
+		const existingEvent = stableEvents.get(key)
+		if (existingEvent) {
+			existingEvent.event = event
+			existingEvent.types.add(event.type)
+			continue
+		}
+
+		stableEvents.set(key, { event, types: new Set([event.type]) })
+	}
+
+	return [
+		...Array.from(stableEvents.values())
+			.filter(({ types }) => !(types.has(SpeakerQueueType.Join) && types.has(SpeakerQueueType.Left)))
+			.map(({ event }) => event),
+		...disconnectEvents,
+	]
 }
 
 const consumeQueue = async () => {
@@ -136,6 +161,9 @@ const consumeQueue = async () => {
 
 		// Wait for queue to stabilize before processing
 		await waitForQueueToStabilize()
+		await queueMutex.runExclusive(() => {
+			queue = reduceStableEvents(queue)
+		})
 
 		logger.info('consumeQueue', `Queue before consuming: ${JSON.stringify(queue)}`)
 		while (queue.length > 0) {
@@ -158,32 +186,6 @@ const consumeQueue = async () => {
 
 				// Actually disconnect the bot
 				disconnectBot(guildId)
-
-				continue
-			}
-
-			// Handle frequent join/leave by same user in same channel (skip disconnect events)
-			const samePeopleSameChannelEvents = getSameUserSameChannelQueue(
-				firstEvent.payload.memberId,
-				firstEvent.payload.channelId
-			).filter((item) => item.type !== SpeakerQueueType.Disconnect)
-			if (samePeopleSameChannelEvents.length > 1) {
-				const samePeopleSameChannelEventIds = samePeopleSameChannelEvents.map((event) => event.id)
-				queue = queue.filter((item) => !samePeopleSameChannelEventIds.includes(item.id))
-				logger.info('consumeQueue', `Batched ${samePeopleSameChannelEvents.length} events for frequent join/leave user`)
-
-				const name = resolveDisplayName(
-					samePeopleSameChannelEvents[0].payload.memberId,
-					samePeopleSameChannelEvents[0].payload.displayName
-				)
-				const text = SPEECH_TEMPLATES.frequentJoinLeave(name)
-
-				await joinChannelAndSpeak(
-					samePeopleSameChannelEvents[0].payload.guildId,
-					samePeopleSameChannelEvents[0].payload.channelId,
-					samePeopleSameChannelEvents[0].payload.adapterCreator,
-					text
-				)
 
 				continue
 			}
