@@ -2,6 +2,11 @@
   "name": "please-stand-up",
   "version": "0.0.1",
   "main": "dist/index.js",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": "22.x",
+    "pnpm": "9.x"
+  },
   "repository": "git@github.com:chin8628/please-stand-up.git",
   "author": "Boonyarith Piriyothinkul <boonyarith.pir@gmail.com>",
   "license": "MIT",

@@ -26,33 +26,36 @@ We don't provide any service so you need to create and run a bot on your own. Yo
 - Connect
 - Speak
 
-### Run a bot
-
-There are two options to install/run a bot.
-
-- **[Recommended]** Run this bot on your server using docker container. https://hub.docker.com/r/chin8628/please-stand-up
-- Download this project then run it manually on any server. (Need to create alias data file which I didn't write a document yet.)
-
-You need to specify environment variables before starting the bot. Please read the next section.
-
-### For docker user
-
-`docker run -v please-stand-up:/data chin8628/please-stand-up:latest`
-
-`/data` keeps aliases data file. All aliases can be lost if the directory wasn't mounted to host.
-
 ### Environment Variables
 
-The bot needs `.env` file at root project directory. You can an example field in `.env.example`
+Copy `.env.example` to `.env` and set both values.
 
 - `TOKEN` is discord bot token.
 - `DISCORD_APP_ID` is discord bot application id.
 
  `TOKEN` and `DISCORD_APP_ID` can be found in Discord Portal Developer after you created your own bot.
 
-### Register slash commands to Discord
+### Run locally
+
+Use Node 22 and enable the PNPM version pinned by the repository:
+
+```sh
+corepack enable
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+### Run with Docker Compose
+
+```sh
+docker compose up --build -d
+```
+
+Settings are stored in `./data` on the host. Stop the bot with `docker compose down`.
+
+### Register slash commands
 
 Once you create your discord bot, you need to regis all slash commands in order to use it.
 
 1. Please verify if you already specify required environment variables.
-2. Run `ts-node scripts/registerCommands.ts`
+2. Run `pnpm update-command`
