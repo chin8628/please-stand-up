@@ -5,7 +5,7 @@ import { getAllAlias } from './repository/alias'
 import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
-import { joinChannelAndSpeak } from './botAction'
+import { joinChannelAndSpeak, stopSpeaking } from './botAction'
 import { disconnectBot } from './helpers/disconnectBotIfAlone'
 import { DiscordGatewayAdapterCreator } from '@discordjs/voice'
 import { QUEUE_DEBOUNCE_MS, QUEUE_MAX_SIZE } from './repository/constants'
@@ -89,6 +89,16 @@ export const clearQueue = async (): Promise<number> => {
 		return queueLength
 	})
 }
+
+export const resetQueue = async (guildId: string): Promise<number> => {
+	const removedCount = await clearQueue()
+	stopSpeaking()
+	disconnectBot(guildId)
+	setQueueState(QueueState.IDLE)
+	return removedCount
+}
+
+export const getQueueDepth = (): number => queue.length
 
 const getTextSpeechForMultipleMember = (names: string[], type: SpeakerQueueType): string => {
 	const uniqueNames = names.filter((elem, pos) => names.indexOf(elem) === pos)
