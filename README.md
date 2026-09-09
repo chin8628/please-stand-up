@@ -59,3 +59,11 @@ Once you create your discord bot, you need to regis all slash commands in order 
 
 1. Please verify if you already specify required environment variables.
 2. Run `pnpm update-command`
+
+### Commands
+
+- `/callme` stores the name the bot should announce for you.
+- `/setjointemplate` and `/setlefttemplate` set the speech templates. Templates must include `{name}`.
+- `/status` shows the queue, voice connection, active speech, and most recent speech failure privately.
+- `/reset queue` cancels queued and active speech, then disconnects the bot so it can recover without server access.
+- `/leave` disconnects the bot from voice.
