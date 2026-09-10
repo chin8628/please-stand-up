@@ -30,13 +30,13 @@ export const shouldBotDisconnect = (prevState: VoiceState): boolean => {
  * Actually disconnects the bot from the voice channel.
  * This should only be called from the queue processor.
  */
-export const disconnectBot = (guildId: string): void => {
-	const connection = getVoiceConnection(guildId)
+export const disconnectBot = (guildId?: string): void => {
+	const connection = guildId ? getVoiceConnection(guildId) : undefined
 	if (connection) {
 		connection.destroy()
 		logger.info('disconnectBot', 'Bot left the channel')
-		setChannelId(null)
 	} else {
 		logger.info('disconnectBot', 'No voice connection to destroy')
 	}
+	setChannelId(null)
 }

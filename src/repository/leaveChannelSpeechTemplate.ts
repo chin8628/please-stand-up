@@ -1,9 +1,8 @@
 import { MAX_SPEECH_TEMPLATE_LETTERS } from './constants'
-
-let leavingChannelSpeechTemplate = '{name} ออกไปแล้วจ้า'
+import { getLeaveTemplate, setLeaveTemplate } from './settings'
 
 export const getLeavingSpeechTemplate = (): string => {
-	return leavingChannelSpeechTemplate
+	return getLeaveTemplate()
 }
 
 export const setLeavingSpeechTemplate = (template: string) => {
@@ -15,5 +14,5 @@ export const setLeavingSpeechTemplate = (template: string) => {
 		throw new Error(`Could not found {name} in an given template. Given template:${template}`)
 	}
 
-	leavingChannelSpeechTemplate = template
+	setLeaveTemplate(template)
 }

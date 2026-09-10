@@ -1,7 +1,10 @@
-import { clearQueue, queueSpeaker, SpeakerQueueType } from './speakerQueue'
+import { clearQueue, queueSpeaker, resetQueue, SpeakerQueueType } from './speakerQueue'
+import { stopSpeaking } from './botAction'
+import { disconnectBot } from './helpers/disconnectBotIfAlone'
 
 jest.mock('./botAction', () => ({
 	joinChannelAndSpeak: jest.fn().mockResolvedValue(undefined),
+	stopSpeaking: jest.fn(),
 }))
 
 jest.mock('./repository/alias', () => ({
@@ -36,5 +39,13 @@ describe('speakerQueue clearQueue', () => {
 
 		expect(removed).toBe(2)
 		expect(await clearQueue()).toBe(0)
+	})
+
+	it('cancels active speech and disconnects when resetting', async () => {
+		const removed = await resetQueue('guild-1')
+
+		expect(removed).toBe(0)
+		expect(stopSpeaking).toHaveBeenCalled()
+		expect(disconnectBot).toHaveBeenCalledWith('guild-1')
 	})
 })

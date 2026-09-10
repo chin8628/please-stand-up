@@ -4,32 +4,16 @@ import * as dotenv from 'dotenv'
 // Must be invoked before all statements
 dotenv.config()
 
-import { Client, IntentsBitField, Interaction, SlashCommandBuilder } from 'discord.js'
+import { Client, IntentsBitField, Interaction } from 'discord.js'
 import logger from 'npmlog'
+import { isSpeaking, stopSpeaking } from './botAction'
+import { commandsConfig } from './commands'
 import { handler } from './handler'
+import { disconnectBot } from './helpers/disconnectBotIfAlone'
 import { isPleaseStandUp } from './helpers/isPleaseStandUp'
-import { slashCommandsConfig } from './slashCommands'
+import { createShutdownHandler } from './shutdown'
 
-let enabledSayMyName = true
-
-// TODO: Extract this config to separated file.
-export const commandsConfig = {
-	stop: {
-		data: new SlashCommandBuilder().setName('stop').setDescription('Stops SAY MY NAME!'),
-		async execute(interaction) {
-			enabledSayMyName = false
-			await interaction.reply({ content: 'Say your name is disabled!' })
-		},
-	},
-	start: {
-		data: new SlashCommandBuilder().setName('start').setDescription('Starts SAY MY NAME!'),
-		async execute(interaction) {
-			enabledSayMyName = true
-			await interaction.reply({ content: 'Say your name is enabled!' })
-		},
-	},
-	...slashCommandsConfig,
-}
+let isAcceptingVoiceEvents = true
 
 const client = new Client({
 	intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.GuildMessages, IntentsBitField.Flags.GuildVoiceStates],
@@ -41,7 +25,7 @@ client.on('ready', () => {
 })
 
 client.on('voiceStateUpdate', async (prevState, newState) => {
-	if (!enabledSayMyName) return
+	if (!isAcceptingVoiceEvents) return
 	if (isPleaseStandUp(client, prevState) || isPleaseStandUp(client, newState)) return
 
 	const isNotChannelUpdateEvent = prevState.channel?.id === newState.channel?.id
@@ -53,13 +37,42 @@ client.on('voiceStateUpdate', async (prevState, newState) => {
 })
 
 client.on('interactionCreate', async (interaction: Interaction) => {
-	if (!interaction.isCommand()) return
-	if (!Object.keys(commandsConfig).includes(interaction.commandName)) {
+	if (!interaction.isChatInputCommand()) return
+	const command = commandsConfig[interaction.commandName]
+	if (!command) {
 		await interaction.reply({
 			content: `Command not found: ${interaction.commandName} isn't in the config key.`,
 			ephemeral: true,
 		})
+		return
 	}
 
-	commandsConfig[interaction.commandName].execute(interaction)
+	try {
+		await command.execute(interaction)
+	} catch (error) {
+		logger.error('interactionCreate', `Command ${interaction.commandName} failed: ${error}`)
+		if (!interaction.replied && !interaction.deferred) {
+			await interaction.reply({ content: 'Command failed. Please try again.', ephemeral: true })
+		}
+	}
 })
+
+const shutdown = createShutdownHandler({
+	isSpeaking,
+	stopSpeaking,
+	disconnect: () => {
+		for (const guild of client.guilds.cache.values()) {
+			disconnectBot(guild.id)
+		}
+	},
+	close: () => client.destroy(),
+})
+
+const handleSignal = (signal: string) => {
+	isAcceptingVoiceEvents = false
+	logger.info('shutdown', `Received ${signal}; shutting down.`)
+	void shutdown()
+}
+
+process.once('SIGINT', () => handleSignal('SIGINT'))
+process.once('SIGTERM', () => handleSignal('SIGTERM'))
