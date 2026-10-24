@@ -2,3 +2,10 @@
 dist
 node_modules
 .idea
+
+secrets/
+.env.*
+!.env.example
+*-key.json
+*service-account*.json
+gcp-*.json

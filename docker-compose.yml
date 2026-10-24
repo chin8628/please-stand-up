@@ -2,6 +2,10 @@ services:
   please-stand-up:
     build: .
     env_file: .env
+    environment:
+      # Container path of the mounted key below (used when TTS_PROVIDER=google-cloud)
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-tts.json
     restart: unless-stopped
     volumes:
       - ./data:/usr/app/data
+      - ./secrets/gcp-tts.json:/run/secrets/gcp-tts.json:ro

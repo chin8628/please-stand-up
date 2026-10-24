@@ -6,14 +6,31 @@ dotenv.config()
 
 import { Client, IntentsBitField, Interaction } from 'discord.js'
 import logger from 'npmlog'
-import { isSpeaking, stopSpeaking } from './botAction'
+import { configureTts, isSpeaking, stopSpeaking } from './botAction'
 import { commandsConfig } from './commands'
 import { handler } from './handler'
 import { disconnectBot } from './helpers/disconnectBotIfAlone'
 import { isPleaseStandUp } from './helpers/isPleaseStandUp'
 import { createShutdownHandler } from './shutdown'
+import { createGoogleCloudTts, createGoogleTranslateTts } from './tts'
 
 let isAcceptingVoiceEvents = true
+
+const ttsProviders = {
+	'google-cloud': createGoogleCloudTts,
+	translate: createGoogleTranslateTts,
+}
+
+try {
+	const ttsProviderName = process.env.TTS_PROVIDER?.trim() || 'google-cloud'
+	if (!(ttsProviderName in ttsProviders)) {
+		throw new Error(`TTS_PROVIDER="${ttsProviderName}" is invalid. Valid values: ${Object.keys(ttsProviders).join(', ')}`)
+	}
+	configureTts(ttsProviders[ttsProviderName as keyof typeof ttsProviders](process.env))
+} catch (error) {
+	logger.error('tts', `Invalid TTS configuration: ${error instanceof Error ? error.message : String(error)}`)
+	process.exit(1)
+}
 
 const client = new Client({
 	intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.GuildMessages, IntentsBitField.Flags.GuildVoiceStates],
