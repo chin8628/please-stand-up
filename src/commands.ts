@@ -6,4 +6,7 @@ export type Command = {
 	execute: (interaction: ChatInputCommandInteraction) => Promise<void> | void
 }
 
-export const commandsConfig: Record<string, Command> = slashCommandsConfig
+// Keyed by the Discord command name, since that is what interaction.commandName holds.
+export const commandsConfig: Record<string, Command> = Object.fromEntries(
+	Object.values(slashCommandsConfig).map((command) => [command.data.name, command])
+)

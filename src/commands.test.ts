@@ -23,6 +23,17 @@ describe('commandsConfig', () => {
 		)
 	})
 
+	it('registers every command under its Discord command name', () => {
+		expect(commandsConfig).toEqual(
+			expect.objectContaining({
+				setjointemplate: expect.any(Object),
+				setlefttemplate: expect.any(Object),
+				callme: expect.any(Object),
+				leave: expect.any(Object),
+			})
+		)
+	})
+
 	it('does not register removed start and stop commands', () => {
 		expect(commandsConfig).not.toHaveProperty('start')
 		expect(commandsConfig).not.toHaveProperty('stop')
