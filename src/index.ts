@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv'
 // Must be invoked before all statements
 dotenv.config()
 
-import { Client, IntentsBitField, Interaction } from 'discord.js'
+import { Client, Events, IntentsBitField, Interaction } from 'discord.js'
 import logger from 'npmlog'
 import { configureTts, isSpeaking, stopSpeaking } from './botAction'
 import { commandsConfig } from './commands'
@@ -37,7 +37,7 @@ const client = new Client({
 })
 
 client.login(process.env.TOKEN)
-client.on('ready', () => {
+client.on(Events.ClientReady, () => {
 	logger.info('', `Logged in as ${client.user.tag}!`)
 })
 
