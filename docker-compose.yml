@@ -1,7 +1,21 @@
 services:
   please-stand-up:
-    build: .
-    env_file: .env
+    image: chin8628/please-stand-up:latest
+    container_name: please-stand-up
+    restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+    environment:
+      TOKEN: ${TOKEN}
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
     restart: unless-stopped
     volumes:
-      - ./data:/usr/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: 300
