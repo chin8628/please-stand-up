@@ -1,4 +1,10 @@
 import { getJoiningSpeechTemplate, setJoiningSpeechTemplate } from './joinChannelSpeechTemplate'
+import { setJoinTemplate } from './settings'
+
+jest.mock('./settings', () => ({
+	getJoinTemplate: jest.fn(() => '{name} เข้ามาจ้า'),
+	setJoinTemplate: jest.fn(),
+}))
 
 describe('Speech Template Repository', () => {
 	it('should get joining template with its default value when no one updated it yet', () => {
@@ -10,8 +16,7 @@ describe('Speech Template Repository', () => {
 		it('should set it correctly', () => {
 			setJoiningSpeechTemplate('Hi {name}, Welcome to the channel!')
 
-			const actual = getJoiningSpeechTemplate()
-			expect(actual).toEqual('Hi {name}, Welcome to the channel!')
+			expect(setJoinTemplate).toHaveBeenCalledWith('Hi {name}, Welcome to the channel!')
 		})
 
 		describe('should throw an error', () => {

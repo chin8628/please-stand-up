@@ -1,0 +1,7 @@
+services:
+  please-stand-up:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/usr/app/data

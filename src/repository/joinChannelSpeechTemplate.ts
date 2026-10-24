@@ -1,9 +1,8 @@
 import { MAX_SPEECH_TEMPLATE_LETTERS } from './constants'
-
-let joinChannelTemplate = '{name} เข้ามาจ้า'
+import { getJoinTemplate, setJoinTemplate } from './settings'
 
 export const getJoiningSpeechTemplate = (): string => {
-	return joinChannelTemplate
+	return getJoinTemplate()
 }
 
 export const setJoiningSpeechTemplate = (template: string) => {
@@ -15,5 +14,5 @@ export const setJoiningSpeechTemplate = (template: string) => {
 		throw new Error(`Could not found {name} in an given template. Given template:${template}`)
 	}
 
-	joinChannelTemplate = template
+	setJoinTemplate(template)
 }

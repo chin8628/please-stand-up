@@ -1,10 +1,13 @@
 import { getVoiceConnection } from '@discordjs/voice'
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
+import { getLastSpeechError, isSpeaking, stopSpeaking } from './botAction'
 import { saveAlias } from './repository/alias'
+import { getChannelId } from './repository/botState'
 import { MAX_SPEECH_TEMPLATE_LETTERS } from './repository/constants'
+import { getQueueState } from './repository/queueState'
 import { setJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate'
 import { setLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
-import { clearQueue } from './speakerQueue'
+import { getQueueDepth, resetQueue } from './speakerQueue'
 
 export const slashCommandsConfig = {
 	set_join_template: {
@@ -87,9 +90,27 @@ export const slashCommandsConfig = {
 	},
 	leave: {
 		data: new SlashCommandBuilder().setName('leave').setDescription('ask the bot to disconnect channel nicely'),
-		execute(interaction: ChatInputCommandInteraction) {
-			const voiceConnection = getVoiceConnection(interaction.guild.id)
+		async execute(interaction: ChatInputCommandInteraction) {
+			const voiceConnection = interaction.guild && getVoiceConnection(interaction.guild.id)
+			if (!voiceConnection) {
+				await interaction.reply({ content: 'Bot is not connected to a voice channel.', ephemeral: true })
+				return
+			}
+
+			stopSpeaking()
 			voiceConnection.destroy()
+			await interaction.reply({ content: 'Bot left the voice channel.', ephemeral: true })
+		},
+	},
+	status: {
+		data: new SlashCommandBuilder().setName('status').setDescription('Show bot runtime status'),
+		async execute(interaction: ChatInputCommandInteraction) {
+			const lastSpeechError = getLastSpeechError() || 'none'
+			const currentChannel = getChannelId() || 'none'
+			await interaction.reply({
+				content: `Queue: ${getQueueDepth()} (${getQueueState()})\nChannel: ${currentChannel}\nSpeaking: ${isSpeaking()}\nLast speech error: ${lastSpeechError}`,
+				ephemeral: true,
+			})
 		},
 	},
 	reset: {
@@ -104,9 +125,14 @@ export const slashCommandsConfig = {
 					.setRequired(true)
 			),
 		async execute(interaction: ChatInputCommandInteraction) {
-			const removedCount = await clearQueue()
+			if (!interaction.guild) {
+				await interaction.reply({ content: 'This command can only run in a server.', ephemeral: true })
+				return
+			}
+
+			const removedCount = await resetQueue(interaction.guild.id)
 			await interaction.reply({
-				content: `Queue reset completed. Removed ${removedCount} queued event(s).`,
+				content: `Queue reset completed. Removed ${removedCount} queued event(s) and disconnected the bot.`,
 				ephemeral: true,
 			})
 		},

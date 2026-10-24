@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 import { REST, Routes } from 'discord.js'
-import { commandsConfig } from '../src/'
+import { commandsConfig } from '../src/commands'
 
 const BOT_ID = process.env.DISCORD_APP_ID
 const TOKEN = process.env.TOKEN
