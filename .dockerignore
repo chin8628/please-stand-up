@@ -3,3 +3,10 @@ node_modules
 .git
 coverage
 dist
+secrets
+*.pem
+.env.*
+!.env.example
+*-key.json
+*service-account*.json
+gcp-*.json

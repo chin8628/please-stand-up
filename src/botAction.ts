@@ -9,9 +9,10 @@ import {
 	VoiceConnection,
 	VoiceConnectionStatus,
 } from '@discordjs/voice'
-import discordTTS from 'discord-tts'
 import logger from 'npmlog'
+import { Readable } from 'stream'
 import { setChannelId } from './repository/botState'
+import { TtsProvider } from './tts/types'
 
 const CONNECTION_TIMEOUT_MS = 5_000
 const PLAYBACK_TIMEOUT_MS = 30_000
@@ -19,6 +20,16 @@ const DELIVERY_ATTEMPTS = 3
 
 let activePlayer: AudioPlayer | null = null
 let lastSpeechError: string | null = null
+let ttsProvider: TtsProvider | null = null
+
+export const configureTts = (provider: TtsProvider): void => {
+	ttsProvider = provider
+}
+
+const getTts = (): TtsProvider => {
+	if (!ttsProvider) throw new Error('TTS provider is not configured; call configureTts() before speaking')
+	return ttsProvider
+}
 
 export const getLastSpeechError = (): string | null => lastSpeechError
 
@@ -33,7 +44,8 @@ export const stopSpeaking = (): void => {
 
 const speak = async (voiceConnection: VoiceConnection, text: string): Promise<void> => {
 	logger.info('speak()', `request tts resource: "${text}"`)
-	const resource = createAudioResource(discordTTS.getVoiceStream(text, { lang: 'th' }))
+	const audio = await getTts().synthesize({ text })
+	const resource = createAudioResource(Readable.from(audio))
 	const audioPlayer = createAudioPlayer()
 	const subscription = voiceConnection.subscribe(audioPlayer)
 
