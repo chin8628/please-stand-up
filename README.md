@@ -4,31 +4,50 @@
 
 # Please Stand Up
 
-~Discord bot for playing "Ma-ha-leuk" song when people joining~
-
-Let you know who joining or leaving your Discord's channel.
+A Discord bot that speaks short notices in your voice channels, so you hear who joined, left or went AFK without looking at the screen.
 
 ## Features
 
-- Announce a person name who join or leave a channel including switching between channels
-- Set alias name instead of calling a person by their username
+- Speaks a member's name when they join, leave, switch channels or are moved to the AFK channel.
+- Batches people who arrive together into one sentence ("A and B joined") and drops a join that is undone within a moment.
+- Custom names (`/callme`) and custom join and leave sentences (`/setjointemplate`, `/setlefttemplate`).
+- Pluggable text-to-speech: Google Cloud (default) or the credential-free Google Translate voice.
+- **Multiple Speakers:** add several bot accounts and each one covers its own voice channel, so announcements no longer wait for a single bot to hop between channels.
+
+Not announced: the first person alone in an empty channel, user-limited channels, and the AFK channel itself.
+
+## How multiple Speakers work
+
+Each bot account is a **Speaker**. Give the app one token per Speaker in `TOKENS`:
+
+- A voice channel is served by at most one Speaker, and two Speakers never share a channel.
+- A Speaker stays in its channel while people are there and leaves once everyone else is gone.
+- If every Speaker is already in a channel and a new channel needs an announcement, the Speaker that has been idle longest moves over. Announcements are never dropped; if every Speaker is mid-sentence, the announcement waits for the first to finish.
+- The first token is the **Primary Speaker**. It alone watches voice activity and answers slash commands, so it must be in your server. The other Speakers only join channels and speak. If a non-primary token fails to log in the app warns and carries on without it; if the Primary Speaker fails, the app exits.
+- The app supports one Discord server at a time.
+
+With a single token it behaves like the original single bot.
 
 ## Installation
 
 ### Create a discord bot on Discord Portal
 
-We don't provide any service so you need to create and run a bot on your own. You must create a bot on Discord Portal Developer. Check this [document](https://discord.com/developers/docs/intro).
+We don't provide any service so you need to create and run the bot on your own. Create one application per Speaker on the Discord Developer Portal (one is enough to start; see [the intro docs](https://discord.com/developers/docs/intro)) and invite each to your server.
 
 #### Required bot permissions
+
+For the Primary Speaker:
 
 - Send Messages
 - Use Slash Commands
 - Connect
 - Speak
 
+Other Speakers only need **Connect** and **Speak**. Make sure every Speaker can see the voice channels you want it to join.
+
 ### Environment Variables
 
-Copy `.env.example` to `.env` and set `TOKENS` and `PRIMARY_DISCORD_APP_ID` (both found in Discord Portal Developer after you created your bot). The TTS variables below are read at startup, and the bot exits with a clear error if the configuration is invalid.
+Copy `.env.example` to `.env` and set `TOKENS` (the bot tokens) and `PRIMARY_DISCORD_APP_ID` (the application id of the first bot). Both are in the Discord Developer Portal. The TTS variables below are read at startup, and the bot exits with a clear error if the configuration is invalid.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -104,18 +123,20 @@ Without Google credentials, add `-e TTS_PROVIDER=translate`.
 
 ### Register slash commands
 
-Once you create your discord bot, you need to regis all slash commands in order to use it.
+Slash commands belong to the Primary Speaker. After creating the bot, register them once (and again whenever commands change):
 
-1. Please verify if you already specify required environment variables.
+1. Make sure `TOKENS` and `PRIMARY_DISCORD_APP_ID` are set in `.env`. Only the first token is used.
 2. Run `pnpm update-command`
 
 ### Commands
 
+Commands are answered by the Primary Speaker.
+
 - `/callme` stores the name the bot should announce for you.
-- `/setjointemplate` and `/setlefttemplate` set the speech templates. Templates must include `{name}`.
-- `/status` shows the queue, voice connection, active speech, and most recent speech failure privately.
-- `/reset queue` cancels queued and active speech, then disconnects the bot so it can recover without server access.
-- `/leave` disconnects the bot from voice.
+- `/setjointemplate` and `/setlefttemplate` set the speech templates for the whole server. Templates must include `{name}`.
+- `/status` privately shows the queue, each Speaker with the channel it is in and whether it is speaking, and the most recent speech failure.
+- `/reset queue` cancels queued and active speech and disconnects every Speaker, so the bot can recover without server access.
+- `/leave` disconnects every Speaker from voice.
 
 ## Troubleshooting
 
@@ -128,3 +149,23 @@ The TTS configuration is validated at startup, so problems show in `docker logs 
 - Invalid JSON: the key file must be the complete, unmodified file downloaded from Google Cloud.
 - Permission or API errors: confirm the Cloud Text-to-Speech API is enabled and billing is active on the key's project.
 - Invalid value: `TTS_PROVIDER` must be `google-cloud` or `translate`, and `TTS_DEFAULT_LANG` must be `th` or `en`.
+
+### A Speaker never joins a channel
+
+- Check that the bot was invited to the server and can view and connect to that voice channel.
+- A token that fails to log in is skipped with a warning in the logs. Look for `failed to log in` and check the token.
+- `/status` shows which Speakers are running.
+
+### Upgrading from a single-bot setup
+
+`DISCORD_APP_ID` was renamed to `PRIMARY_DISCORD_APP_ID`. `TOKEN` still works, or switch to `TOKENS=` to add more bots. Re-run `pnpm update-command` after changing the Primary Speaker.
+
+## Development
+
+```sh
+pnpm test       # Jest
+pnpm typecheck
+pnpm lint
+```
+
+Domain vocabulary is in [CONTEXT.md](CONTEXT.md); project notes for contributors and agents are in [AGENTS.md](AGENTS.md).
