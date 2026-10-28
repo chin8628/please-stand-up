@@ -6,8 +6,8 @@ import { getJoiningSpeechTemplate } from './repository/joinChannelSpeechTemplate
 import { getLeavingSpeechTemplate } from './repository/leaveChannelSpeechTemplate'
 import { getQueueState, QueueState, setQueueState } from './repository/queueState'
 import { joinChannelAndSpeak, stopSpeaking } from './botAction'
-import { disconnectBot } from './helpers/disconnectBotIfAlone'
-import { DiscordGatewayAdapterCreator } from '@discordjs/voice'
+import { disconnectBot, disconnectChannelSpeaker } from './helpers/disconnectBotIfAlone'
+import { getAdapterCreator, getSpeakerPool } from './speakers'
 import { QUEUE_DEBOUNCE_MS, QUEUE_MAX_SIZE } from './repository/constants'
 import { NAME_CONNECTOR, SPEECH_TEMPLATES } from './repository/speechTemplates'
 
@@ -23,7 +23,6 @@ export type QueueItemPayload = {
 	channelId: string
 	memberId: string
 	displayName: string
-	adapterCreator: DiscordGatewayAdapterCreator
 }
 
 export type QueueItem = {
@@ -35,6 +34,11 @@ export type QueueItem = {
 // Mutex to prevent race conditions when accessing the queue
 const queueMutex = new Mutex()
 let queue: QueueItem[] = []
+
+// Channels with a Delivery in flight. A channel is served by one Speaker at a time, but
+// different channels are served in parallel by different Speakers.
+const inflight = new Map<string, Promise<void>>()
+let wakeConsumer: (() => void) | null = null
 
 /**
  * Resolves user display name from alias or falls back to the provided name
@@ -75,6 +79,8 @@ export const queueSpeaker = async (type: SpeakerQueueType, payload: QueueItemPay
 		queue.push(event)
 		logger.info('queueSpeaker', `Enqueued event: ${JSON.stringify(event)}`)
 	})
+
+	wakeConsumer?.()
 
 	if (getQueueState() === QueueState.IDLE) {
 		consumeQueue()
@@ -164,6 +170,36 @@ export const reduceStableEvents = (events: QueueItem[]): QueueItem[] => {
 	]
 }
 
+const deliver = async (guildId: string, channelId: string, text: string): Promise<void> => {
+	const pool = getSpeakerPool()
+	const { speakerId, previousChannelId } = await pool.acquire(channelId, guildId)
+	if (previousChannelId && previousChannelId !== channelId) {
+		logger.info('deliver', `Speaker ${speakerId} hops from channel ${previousChannelId} to ${channelId}`)
+	}
+
+	let delivered = false
+	try {
+		delivered = await joinChannelAndSpeak(speakerId, guildId, channelId, getAdapterCreator(speakerId, guildId), text)
+	} catch (error) {
+		logger.error('deliver', `Speaker ${speakerId} failed to deliver in channel ${channelId}: ${error}`)
+	} finally {
+		// A failed Delivery destroyed the connection, so the Speaker no longer occupies the channel.
+		pool.release(speakerId, { keepChannel: delivered })
+	}
+}
+
+const startDelivery = (guildId: string, channelId: string, text: string): void => {
+	const delivery = deliver(guildId, channelId, text).finally(() => {
+		inflight.delete(channelId)
+	})
+	inflight.set(channelId, delivery)
+}
+
+const waitForProgress = async (): Promise<void> => {
+	await Promise.race([...inflight.values(), new Promise<void>((resolve) => (wakeConsumer = resolve))])
+	wakeConsumer = null
+}
+
 const consumeQueue = async () => {
 	try {
 		setQueueState(QueueState.PROCESSING)
@@ -176,9 +212,14 @@ const consumeQueue = async () => {
 		})
 
 		logger.info('consumeQueue', `Queue before consuming: ${JSON.stringify(queue)}`)
-		while (queue.length > 0) {
+		while (queue.length > 0 || inflight.size > 0) {
+			// Events for a channel that is mid-Delivery stay queued so they can be batched together
+			const firstEvent = queue.find((item) => !inflight.has(item.payload.channelId))
+			if (!firstEvent) {
+				await waitForProgress()
+				continue
+			}
 			logger.verbose('consumeQueue', `Processing queue (${queue.length} event(s) remaining)`)
-			const firstEvent = queue[0]
 
 			// Handle disconnect events - process immediately and clear remaining events for this channel
 			if (firstEvent.type === SpeakerQueueType.Disconnect) {
@@ -194,8 +235,8 @@ const consumeQueue = async () => {
 					`Processing disconnect event, removing ${eventsToRemove.length} event(s) for channel ${channelId}`
 				)
 
-				// Actually disconnect the bot
-				disconnectBot(guildId)
+				// Free the Speaker in this channel
+				disconnectChannelSpeaker(guildId, channelId)
 
 				continue
 			}
@@ -205,34 +246,17 @@ const consumeQueue = async () => {
 			const selectedEventsId = selectedEvents.map((event) => event.id)
 			queue = queue.filter((item) => !selectedEventsId.includes(item.id))
 
+			const { guildId, channelId } = selectedEvents[0].payload
+			const names = selectedEvents.map((event) => resolveDisplayName(event.payload.memberId, event.payload.displayName))
+
 			if (selectedEvents.length > 1) {
 				logger.info('consumeQueue', `Batched ${selectedEvents.length} events of type "${firstEvent.type}"`)
-				const names = selectedEvents.map((event) =>
-					resolveDisplayName(event.payload.memberId, event.payload.displayName)
-				)
-				const text = getTextSpeechForMultipleMember(names, selectedEvents[0].type)
-
-				await joinChannelAndSpeak(
-					selectedEvents[0].payload.guildId,
-					selectedEvents[0].payload.channelId,
-					selectedEvents[0].payload.adapterCreator,
-					text
-				)
-
+				startDelivery(guildId, channelId, getTextSpeechForMultipleMember(names, firstEvent.type))
 				continue
 			}
 
-			// Handle single user event
-			if (selectedEvents.length === 1) {
-				const { payload, type } = selectedEvents[0]
-				const name = resolveDisplayName(payload.memberId, payload.displayName)
-				const text = getTextSpeechForSingleMember(name, type)
-
-				logger.info('consumeQueue', `Processing single event: type="${type}", name="${name}"`)
-				await joinChannelAndSpeak(payload.guildId, payload.channelId, payload.adapterCreator, text)
-
-				continue
-			}
+			logger.info('consumeQueue', `Processing single event: type="${firstEvent.type}", name="${names[0]}"`)
+			startDelivery(guildId, channelId, getTextSpeechForSingleMember(names[0], firstEvent.type))
 		}
 
 		logger.info('consumeQueue', 'Queue processing completed')

@@ -7,8 +7,7 @@ import {
 	joinVoiceChannel,
 	VoiceConnectionStatus,
 } from '@discordjs/voice'
-import { configureTts, getLastSpeechError, joinChannelAndSpeak } from './botAction'
-import { setChannelId } from './repository/botState'
+import { configureTts, getLastSpeechError, isSpeakerSpeaking, joinChannelAndSpeak } from './botAction'
 import { TtsError, TtsProvider } from './tts/types'
 
 jest.mock('@discordjs/voice', () => ({
@@ -19,8 +18,6 @@ jest.mock('@discordjs/voice', () => ({
 	entersState: jest.fn(),
 	joinVoiceChannel: jest.fn(),
 }))
-
-jest.mock('./repository/botState', () => ({ setChannelId: jest.fn() }))
 
 describe('joinChannelAndSpeak', () => {
 	const connection = { subscribe: jest.fn(), destroy: jest.fn() }
@@ -40,12 +37,12 @@ describe('joinChannelAndSpeak', () => {
 	})
 
 	it('waits for a ready connection before playing speech', async () => {
-		await expect(joinChannelAndSpeak('guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(true)
+		await expect(joinChannelAndSpeak('speaker-1', 'guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(true)
 
 		expect(entersState).toHaveBeenNthCalledWith(1, connection, VoiceConnectionStatus.Ready, 5_000)
 		expect(player.play).toHaveBeenCalled()
 		expect(entersState).toHaveBeenNthCalledWith(2, player, AudioPlayerStatus.Idle, 30_000)
-		expect(setChannelId).toHaveBeenCalledWith('channel-1')
+		expect(joinVoiceChannel).toHaveBeenCalledWith(expect.objectContaining({ guildId: 'guild-1', channelId: 'channel-1', group: 'speaker-1' }))
 		expect(synthesize).toHaveBeenCalledTimes(1)
 		expect(synthesize).toHaveBeenCalledWith({ text: 'Hello' })
 		const stream = jest.mocked(createAudioResource).mock.calls[0][0] as Readable
@@ -57,7 +54,7 @@ describe('joinChannelAndSpeak', () => {
 	it('retries synthesis failures and skips delivery', async () => {
 		synthesize.mockRejectedValue(new TtsError('fake', 'quota exceeded'))
 
-		await expect(joinChannelAndSpeak('guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(false)
+		await expect(joinChannelAndSpeak('speaker-1', 'guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(false)
 
 		expect(synthesize).toHaveBeenCalledTimes(3)
 		expect(synthesize).toHaveBeenCalledWith({ text: 'Hello' })
@@ -69,7 +66,7 @@ describe('joinChannelAndSpeak', () => {
 		jest.resetModules()
 		const fresh = await import('./botAction')
 
-		await expect(fresh.joinChannelAndSpeak('guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(false)
+		await expect(fresh.joinChannelAndSpeak('speaker-1', 'guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(false)
 
 		expect(fresh.getLastSpeechError()).toMatch(/not configured/)
 	})
@@ -77,10 +74,28 @@ describe('joinChannelAndSpeak', () => {
 	it('skips delivery after bounded retry exhaustion', async () => {
 		jest.mocked(entersState).mockRejectedValue(new Error('connection failed'))
 
-		await expect(joinChannelAndSpeak('guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(false)
+		await expect(joinChannelAndSpeak('speaker-1', 'guild-1', 'channel-1', jest.fn() as any, 'Hello')).resolves.toBe(false)
 
 		expect(joinVoiceChannel).toHaveBeenCalledTimes(3)
 		expect(connection.destroy).toHaveBeenCalledTimes(3)
 		expect(getLastSpeechError()).toBe('connection failed')
+	})
+
+	it('tracks speaking per Speaker so Speakers can talk in parallel', async () => {
+		let finishFirst: () => void = () => undefined
+		jest.mocked(entersState).mockImplementation(((target: unknown) => {
+			if (target === player) return new Promise<void>((resolve) => (finishFirst = resolve))
+			return Promise.resolve()
+		}) as any)
+
+		const delivery = joinChannelAndSpeak('speaker-1', 'guild-1', 'channel-1', jest.fn() as any, 'Hello')
+		await new Promise((resolve) => setImmediate(resolve))
+
+		expect(isSpeakerSpeaking('speaker-1')).toBe(true)
+		expect(isSpeakerSpeaking('speaker-2')).toBe(false)
+
+		finishFirst()
+		await delivery
+		expect(isSpeakerSpeaking('speaker-1')).toBe(false)
 	})
 })

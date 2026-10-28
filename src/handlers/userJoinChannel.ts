@@ -17,6 +17,5 @@ export const userJoinChannel = (newState: VoiceState) => {
 		channelId: newState.channelId,
 		memberId: newState.member.id,
 		displayName: newState.member.displayName,
-		adapterCreator: newState.guild.voiceAdapterCreator,
 	})
 }

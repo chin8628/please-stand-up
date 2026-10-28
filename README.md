@@ -28,12 +28,12 @@ We don't provide any service so you need to create and run a bot on your own. Yo
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` and set `TOKEN` and `DISCORD_APP_ID` (both found in Discord Portal Developer after you created your bot). The TTS variables below are read at startup, and the bot exits with a clear error if the configuration is invalid.
+Copy `.env.example` to `.env` and set `TOKENS` and `PRIMARY_DISCORD_APP_ID` (both found in Discord Portal Developer after you created your bot). The TTS variables below are read at startup, and the bot exits with a clear error if the configuration is invalid.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `TOKEN` | required | Discord bot token. |
-| `DISCORD_APP_ID` | required | Discord application id. |
+| `TOKENS` | required | Comma-separated Discord bot tokens, one per Speaker. The first is the Primary Speaker, which listens for voice events and handles slash commands. Invite every bot to the server with Connect and Speak permissions. A single `TOKEN` is still accepted. |
+| `PRIMARY_DISCORD_APP_ID` | required | Discord application id of the Primary Speaker. |
 | `TTS_PROVIDER` | `google-cloud` | `google-cloud` (needs credentials) or `translate` (no credentials). |
 | `TTS_DEFAULT_LANG` | `th` | Default speech language: `th` or `en`. |
 | `TTS_VOICE_TH` | required for `google-cloud` | Google Cloud voice for Thai, e.g. `th-TH-Standard-A`. |

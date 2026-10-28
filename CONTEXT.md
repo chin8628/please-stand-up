@@ -9,8 +9,16 @@ The spoken sentence for one voice-channel event (join, leave, AFK), composed fro
 _Avoid_: message, notification
 
 **Speech Template**:
-A sentence pattern with a `{name}` placeholder that an Announcement is built from. Join and leave templates are customizable per bot; others are built in.
+A sentence pattern with a `{name}` placeholder that an Announcement is built from. Join and leave templates are customizable; others are built in.
 _Avoid_: script, phrase
+
+**Primary Speaker**:
+The first configured Speaker. It alone observes voice-channel events and answers slash commands; other Speakers only perform Deliveries.
+_Avoid_: main bot, master
+
+**Speaker**:
+One bot account instance that can sit in at most one voice channel per server and perform Deliveries there. The server may have several Speakers; no two Speakers occupy the same voice channel.
+_Avoid_: bot (alone, when meaning one account), worker
 
 **Alias**:
 The name the bot speaks for a member instead of their Discord display name.
@@ -35,5 +43,6 @@ _Avoid_: queue (alone)
 ## Relationships
 
 - An **Announcement** is built from a **Speech Template** and zero or more **Aliases**
+- A **Speaker** performs the **Deliveries** for the voice channel it occupies; a **Speaker** stays in a channel until no members remain besides **Speakers**
 - A **TTS Provider** produces one **Speech** per **Announcement**
 - A **Delivery** plays one **Speech**; a skipped **Delivery** never blocks the **Speaker Queue**

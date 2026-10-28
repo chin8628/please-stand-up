@@ -1,3 +1,5 @@
-import { Client, VoiceState } from 'discord.js'
+import { VoiceState } from 'discord.js'
+import { isSpeakerId } from '../speakers'
 
-export const isPleaseStandUp = (client: Client, state: VoiceState): boolean => client.user.id === state.member?.id
+// True when the voice event was caused by one of our own Speakers.
+export const isPleaseStandUp = (state: VoiceState): boolean => isSpeakerId(state.member?.id)

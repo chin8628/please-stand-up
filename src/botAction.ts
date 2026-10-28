@@ -11,14 +11,13 @@ import {
 } from '@discordjs/voice'
 import logger from 'npmlog'
 import { Readable } from 'stream'
-import { setChannelId } from './repository/botState'
 import { TtsProvider } from './tts/types'
 
 const CONNECTION_TIMEOUT_MS = 5_000
 const PLAYBACK_TIMEOUT_MS = 30_000
 const DELIVERY_ATTEMPTS = 3
 
-let activePlayer: AudioPlayer | null = null
+const activePlayers = new Map<string, AudioPlayer>()
 let lastSpeechError: string | null = null
 let ttsProvider: TtsProvider | null = null
 
@@ -33,35 +32,36 @@ const getTts = (): TtsProvider => {
 
 export const getLastSpeechError = (): string | null => lastSpeechError
 
-export const isSpeaking = (): boolean => activePlayer !== null
+export const isSpeaking = (): boolean => activePlayers.size > 0
+
+export const isSpeakerSpeaking = (speakerId: string): boolean => activePlayers.has(speakerId)
 
 export const stopSpeaking = (): void => {
-	if (activePlayer) {
-		activePlayer.stop(true)
-		activePlayer = null
-	}
+	activePlayers.forEach((player) => player.stop(true))
+	activePlayers.clear()
 }
 
-const speak = async (voiceConnection: VoiceConnection, text: string): Promise<void> => {
+const speak = async (speakerId: string, voiceConnection: VoiceConnection, text: string): Promise<void> => {
 	logger.info('speak()', `request tts resource: "${text}"`)
 	const audio = await getTts().synthesize({ text })
 	const resource = createAudioResource(Readable.from(audio))
 	const audioPlayer = createAudioPlayer()
 	const subscription = voiceConnection.subscribe(audioPlayer)
 
-	activePlayer = audioPlayer
+	activePlayers.set(speakerId, audioPlayer)
 	try {
 		audioPlayer.play(resource)
 		await entersState(audioPlayer, AudioPlayerStatus.Idle, PLAYBACK_TIMEOUT_MS)
 		logger.info('speak()', `Bot said "${text}"`)
 	} finally {
-		if (activePlayer === audioPlayer) activePlayer = null
+		if (activePlayers.get(speakerId) === audioPlayer) activePlayers.delete(speakerId)
 		subscription?.unsubscribe()
 		audioPlayer.stop(true)
 	}
 }
 
 export const joinChannelAndSpeak = async (
+	speakerId: string,
 	guildId: string,
 	channelId: string,
 	voiceAdapterCreator: DiscordGatewayAdapterCreator,
@@ -76,19 +76,18 @@ export const joinChannelAndSpeak = async (
 				guildId,
 				channelId,
 				adapterCreator: voiceAdapterCreator,
+				group: speakerId,
 				selfMute: false,
 				selfDeaf: false,
 			})
 
 			await entersState(voiceConnection, VoiceConnectionStatus.Ready, CONNECTION_TIMEOUT_MS)
-			setChannelId(channelId)
-			await speak(voiceConnection, text)
+			await speak(speakerId, voiceConnection, text)
 			return true
 		} catch (error) {
 			lastSpeechError = error instanceof Error ? error.message : String(error)
 			logger.warn('joinChannelAndSpeak', `Delivery attempt ${attempt} failed: ${lastSpeechError}`)
 			voiceConnection?.destroy()
-			setChannelId(null)
 		}
 	}
 

@@ -2,17 +2,17 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 import { REST, Routes } from 'discord.js'
+import { parseSpeakerTokens } from '../src/config'
 import { commandsConfig } from '../src/commands'
 
-const BOT_ID = process.env.DISCORD_APP_ID
-const TOKEN = process.env.TOKEN
+const BOT_ID = process.env.PRIMARY_DISCORD_APP_ID
+// Commands belong to the Primary Speaker, the first configured token.
+const [TOKEN] = parseSpeakerTokens(process.env)
 
 if (!BOT_ID) {
-	throw new Error('DISCORD_APP_ID env is undefined. Please specify DISCORD_APP_ID in environment variables')
-}
-
-if (!TOKEN) {
-	throw new Error('TOKEN env is undefined. Please specify TOKEN in environment variables')
+	throw new Error(
+		'PRIMARY_DISCORD_APP_ID env is undefined. Please specify PRIMARY_DISCORD_APP_ID in environment variables'
+	)
 }
 
 const commands = Object.values(commandsConfig).map((item) => item.data.toJSON())
