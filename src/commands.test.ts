@@ -7,7 +7,8 @@ jest.mock('./botAction', () => ({
 }))
 
 jest.mock('./repository/alias', () => ({ saveAlias: jest.fn() }))
-jest.mock('./repository/botState', () => ({ getChannelId: jest.fn(() => null) }))
+jest.mock('./speakers', () => ({ describeSpeakers: jest.fn(() => []) }))
+jest.mock('./helpers/disconnectBotIfAlone', () => ({ disconnectBot: jest.fn(() => 0) }))
 jest.mock('./repository/joinChannelSpeechTemplate', () => ({ setJoiningSpeechTemplate: jest.fn() }))
 jest.mock('./repository/leaveChannelSpeechTemplate', () => ({ setLeavingSpeechTemplate: jest.fn() }))
 jest.mock('./repository/queueState', () => ({ getQueueState: jest.fn(() => 'IDLE') }))

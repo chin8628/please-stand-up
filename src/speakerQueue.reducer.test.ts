@@ -5,7 +5,6 @@ const payload: QueueItemPayload = {
 	channelId: 'channel-1',
 	memberId: 'member-1',
 	displayName: 'Member 1',
-	adapterCreator: jest.fn() as any,
 }
 
 const event = (id: string, type: SpeakerQueueType, overrides: Partial<QueueItemPayload> = {}): QueueItem => ({

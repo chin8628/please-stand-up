@@ -21,7 +21,6 @@ export const userMovedToAFKHandler = (prevState: VoiceState, newState: VoiceStat
 		channelId: prevState.channelId,
 		memberId: prevState.member.id,
 		displayName: prevState.member.displayName,
-		adapterCreator: prevState.guild.voiceAdapterCreator,
 	})
 
 	// Then queue disconnect if needed (will be processed after the AFK announcement)
@@ -31,7 +30,6 @@ export const userMovedToAFKHandler = (prevState: VoiceState, newState: VoiceStat
 			channelId: prevState.channelId,
 			memberId: '',
 			displayName: '',
-			adapterCreator: prevState.guild.voiceAdapterCreator,
 		})
 	}
 }

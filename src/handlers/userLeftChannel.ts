@@ -30,7 +30,6 @@ export const userLeftChannel = (prevState: VoiceState) => {
 		channelId: prevState.channelId,
 		memberId: prevState.member.id,
 		displayName: prevState.member.displayName,
-		adapterCreator: prevState.guild.voiceAdapterCreator,
 	})
 
 	// Then queue disconnect if needed (will be processed after the leave announcement)
@@ -40,7 +39,6 @@ export const userLeftChannel = (prevState: VoiceState) => {
 			channelId: prevState.channelId,
 			memberId: '',
 			displayName: '',
-			adapterCreator: prevState.guild.voiceAdapterCreator,
 		})
 	}
 }
